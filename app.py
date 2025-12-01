@@ -12,11 +12,13 @@ New features added:
 """
 
 import os
-import sqlite3
+import json
 from datetime import datetime
 from flask import (Flask, render_template, request, redirect,
                    url_for, session, send_from_directory, flash, jsonify)
 from werkzeug.utils import secure_filename
+from db_utils import get_db_connection
+from gemini_chat import get_chat_response
 
 
 app = Flask(__name__)
@@ -29,199 +31,267 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
 
-def get_db_connection():
-    conn = sqlite3.connect(DATABASE)
-    conn.row_factory = sqlite3.Row
-    return conn
+# Database connection is now imported from db_utils
 
 
 def init_db():
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('PRAGMA foreign_keys = ON')
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('PRAGMA foreign_keys = ON')
+        
+        # Users table with profile fields
+        cursor.execute(
+            '''CREATE TABLE IF NOT EXISTS Users (
+                   id INTEGER PRIMARY KEY AUTOINCREMENT,
+                   email TEXT NOT NULL UNIQUE,
+                   role TEXT NOT NULL,
+                   name TEXT,
+                   bio TEXT,
+                   avatar_url TEXT,
+                   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+               )''')
 
-    # Users table with profile fields
-    cursor.execute(
-        '''CREATE TABLE IF NOT EXISTS Users (
-               id INTEGER PRIMARY KEY AUTOINCREMENT,
-               email TEXT NOT NULL UNIQUE,
-               role TEXT NOT NULL,
-               name TEXT,
-               bio TEXT,
-               avatar_url TEXT,
-               created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-           )''')
+        # Add new columns to existing Users table if they don't exist
+        cursor.execute("PRAGMA table_info(Users)")
+        existing_cols = [row['name'] for row in cursor.fetchall()]
+        
+        if 'name' not in existing_cols:
+            cursor.execute('ALTER TABLE Users ADD COLUMN name TEXT')
+        if 'bio' not in existing_cols:
+            cursor.execute('ALTER TABLE Users ADD COLUMN bio TEXT')
+        if 'avatar_url' not in existing_cols:
+            cursor.execute('ALTER TABLE Users ADD COLUMN avatar_url TEXT')
+        if 'created_at' not in existing_cols:
+            cursor.execute('ALTER TABLE Users ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
+            
+        # Create other tables...
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS Documents (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                description TEXT,
+                file_path TEXT NOT NULL,
+                user_id INTEGER NOT NULL,
+                status TEXT DEFAULT 'Pending',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES Users (id)
+            )
+        ''')
+        
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS Questions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                description TEXT,
+                user_id INTEGER NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES Users (id)
+            )
+        ''')
+        
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS Answers (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                content TEXT NOT NULL,
+                user_id INTEGER NOT NULL,
+                question_id INTEGER NOT NULL,
+                is_accepted BOOLEAN DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES Users (id),
+                FOREIGN KEY (question_id) REFERENCES Questions (id)
+            )
+        ''')
+        
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS Bookmarks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                item_type TEXT NOT NULL,
+                item_id INTEGER NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES Users (id),
+                UNIQUE(user_id, item_type, item_id)
+            )
+        ''')
+        
+        # Create indexes
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_documents_user ON Documents(user_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_questions_user ON Questions(user_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_answers_question ON Answers(question_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_answers_user ON Answers(user_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_votes_user ON Votes(user_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_votes_answer ON Votes(answer_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_bookmarks_user ON Bookmarks(user_id)')
 
-    # Add new columns to existing Users table
-    cursor.execute("PRAGMA table_info(Users)")
-    existing_cols = [row['name'] for row in cursor.fetchall()]
-    if 'name' not in existing_cols:
-        cursor.execute('ALTER TABLE Users ADD COLUMN name TEXT')
-    if 'bio' not in existing_cols:
-        cursor.execute('ALTER TABLE Users ADD COLUMN bio TEXT')
-    if 'avatar_url' not in existing_cols:
-        cursor.execute('ALTER TABLE Users ADD COLUMN avatar_url TEXT')
-    if 'created_at' not in existing_cols:
-        cursor.execute('ALTER TABLE Users ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
+        # Documents table
+        cursor.execute(
+            '''CREATE TABLE IF NOT EXISTS Documents (
+                   id INTEGER PRIMARY KEY AUTOINCREMENT,
+                   title TEXT NOT NULL,
+                   description TEXT,
+                   tags TEXT,
+                   content TEXT,
+                   status TEXT NOT NULL,
+                   user_id INTEGER NOT NULL,
+                   file_path TEXT,
+                   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                   views INTEGER DEFAULT 0,
+                   FOREIGN KEY (user_id) REFERENCES Users(id)
+               )''')
 
-    # Documents table
-    cursor.execute(
-        '''CREATE TABLE IF NOT EXISTS Documents (
-               id INTEGER PRIMARY KEY AUTOINCREMENT,
-               title TEXT NOT NULL,
-               description TEXT,
-               tags TEXT,
-               content TEXT,
-               status TEXT NOT NULL,
-               user_id INTEGER NOT NULL,
-               file_path TEXT,
-               created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-               updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-               views INTEGER DEFAULT 0,
-               FOREIGN KEY (user_id) REFERENCES Users(id)
-           )''')
+        cursor.execute("PRAGMA table_info(Documents)")
+        existing_cols = [row['name'] for row in cursor.fetchall()]
+        if 'file_path' not in existing_cols:
+            cursor.execute('ALTER TABLE Documents ADD COLUMN file_path TEXT')
+        if 'created_at' not in existing_cols:
+            cursor.execute('ALTER TABLE Documents ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
+        if 'updated_at' not in existing_cols:
+            cursor.execute('ALTER TABLE Documents ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
+        if 'views' not in existing_cols:
+            cursor.execute('ALTER TABLE Documents ADD COLUMN views INTEGER DEFAULT 0')
 
-    cursor.execute("PRAGMA table_info(Documents)")
-    existing_cols = [row['name'] for row in cursor.fetchall()]
-    if 'file_path' not in existing_cols:
-        cursor.execute('ALTER TABLE Documents ADD COLUMN file_path TEXT')
-    if 'created_at' not in existing_cols:
-        cursor.execute('ALTER TABLE Documents ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
-    if 'updated_at' not in existing_cols:
-        cursor.execute('ALTER TABLE Documents ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
-    if 'views' not in existing_cols:
-        cursor.execute('ALTER TABLE Documents ADD COLUMN views INTEGER DEFAULT 0')
+        # Questions table
+        cursor.execute(
+            '''CREATE TABLE IF NOT EXISTS Questions (
+                   id INTEGER PRIMARY KEY AUTOINCREMENT,
+                   title TEXT NOT NULL,
+                   description TEXT,
+                   tags TEXT,
+                   status TEXT NOT NULL,
+                   user_id INTEGER NOT NULL,
+                   file_path TEXT,
+                   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                   views INTEGER DEFAULT 0,
+                   FOREIGN KEY (user_id) REFERENCES Users(id)
+               )''')
 
-    # Questions table
-    cursor.execute(
-        '''CREATE TABLE IF NOT EXISTS Questions (
-               id INTEGER PRIMARY KEY AUTOINCREMENT,
-               title TEXT NOT NULL,
-               description TEXT,
-               tags TEXT,
-               status TEXT NOT NULL,
-               user_id INTEGER NOT NULL,
-               file_path TEXT,
-               created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-               views INTEGER DEFAULT 0,
-               FOREIGN KEY (user_id) REFERENCES Users(id)
-           )''')
+        cursor.execute("PRAGMA table_info(Questions)")
+        existing_cols = [row['name'] for row in cursor.fetchall()]
+        if 'views' not in existing_cols:
+            cursor.execute('ALTER TABLE Questions ADD COLUMN views INTEGER DEFAULT 0')
 
-    cursor.execute("PRAGMA table_info(Questions)")
-    existing_cols = [row['name'] for row in cursor.fetchall()]
-    if 'views' not in existing_cols:
-        cursor.execute('ALTER TABLE Questions ADD COLUMN views INTEGER DEFAULT 0')
+        # Answers table with votes
+        cursor.execute(
+            '''CREATE TABLE IF NOT EXISTS Answers (
+                   id INTEGER PRIMARY KEY AUTOINCREMENT,
+                   question_id INTEGER NOT NULL,
+                   content TEXT NOT NULL,
+                   user_id INTEGER NOT NULL,
+                   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                   upvotes INTEGER DEFAULT 0,
+                   downvotes INTEGER DEFAULT 0,
+                   is_accepted BOOLEAN DEFAULT 0,
+                   FOREIGN KEY (question_id) REFERENCES Questions(id),
+                   FOREIGN KEY (user_id) REFERENCES Users(id)
+               )''')
 
-    # Answers table with votes
-    cursor.execute(
-        '''CREATE TABLE IF NOT EXISTS Answers (
-               id INTEGER PRIMARY KEY AUTOINCREMENT,
-               question_id INTEGER NOT NULL,
-               content TEXT NOT NULL,
-               user_id INTEGER NOT NULL,
-               created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-               upvotes INTEGER DEFAULT 0,
-               downvotes INTEGER DEFAULT 0,
-               is_accepted BOOLEAN DEFAULT 0,
-               FOREIGN KEY (question_id) REFERENCES Questions(id),
-               FOREIGN KEY (user_id) REFERENCES Users(id)
-           )''')
+        cursor.execute("PRAGMA table_info(Answers)")
+        existing_cols = [row['name'] for row in cursor.fetchall()]
+        if 'upvotes' not in existing_cols:
+            cursor.execute('ALTER TABLE Answers ADD COLUMN upvotes INTEGER DEFAULT 0')
+        if 'downvotes' not in existing_cols:
+            cursor.execute('ALTER TABLE Answers ADD COLUMN downvotes INTEGER DEFAULT 0')
+        if 'is_accepted' not in existing_cols:
+            cursor.execute('ALTER TABLE Answers ADD COLUMN is_accepted BOOLEAN DEFAULT 0')
 
-    cursor.execute("PRAGMA table_info(Answers)")
-    existing_cols = [row['name'] for row in cursor.fetchall()]
-    if 'upvotes' not in existing_cols:
-        cursor.execute('ALTER TABLE Answers ADD COLUMN upvotes INTEGER DEFAULT 0')
-    if 'downvotes' not in existing_cols:
-        cursor.execute('ALTER TABLE Answers ADD COLUMN downvotes INTEGER DEFAULT 0')
-    if 'is_accepted' not in existing_cols:
-        cursor.execute('ALTER TABLE Answers ADD COLUMN is_accepted BOOLEAN DEFAULT 0')
+        # Votes table for tracking user votes
+        cursor.execute(
+            '''CREATE TABLE IF NOT EXISTS Votes (
+                   id INTEGER PRIMARY KEY AUTOINCREMENT,
+                   user_id INTEGER NOT NULL,
+                   answer_id INTEGER NOT NULL,
+                   vote_type TEXT NOT NULL,
+                   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                   FOREIGN KEY (user_id) REFERENCES Users(id),
+                   FOREIGN KEY (answer_id) REFERENCES Answers(id),
+                   UNIQUE(user_id, answer_id)
+               )''')
 
-    # Votes table for tracking user votes
-    cursor.execute(
-        '''CREATE TABLE IF NOT EXISTS Votes (
-               id INTEGER PRIMARY KEY AUTOINCREMENT,
-               user_id INTEGER NOT NULL,
-               answer_id INTEGER NOT NULL,
-               vote_type TEXT NOT NULL,
-               created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-               FOREIGN KEY (user_id) REFERENCES Users(id),
-               FOREIGN KEY (answer_id) REFERENCES Answers(id),
-               UNIQUE(user_id, answer_id)
-           )''')
+        # Bookmarks table
+        cursor.execute(
+            '''CREATE TABLE IF NOT EXISTS Bookmarks (
+                   id INTEGER PRIMARY KEY AUTOINCREMENT,
+                   user_id INTEGER NOT NULL,
+                   item_type TEXT NOT NULL,
+                   item_id INTEGER NOT NULL,
+                   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                   FOREIGN KEY (user_id) REFERENCES Users(id),
+                   UNIQUE(user_id, item_type, item_id)
+               )''')
 
-    # Bookmarks table
-    cursor.execute(
-        '''CREATE TABLE IF NOT EXISTS Bookmarks (
-               id INTEGER PRIMARY KEY AUTOINCREMENT,
-               user_id INTEGER NOT NULL,
-               item_type TEXT NOT NULL,
-               item_id INTEGER NOT NULL,
-               created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-               FOREIGN KEY (user_id) REFERENCES Users(id),
-               UNIQUE(user_id, item_type, item_id)
-           )''')
+        # Notifications table
+        cursor.execute(
+            '''CREATE TABLE IF NOT EXISTS Notifications (
+                   id INTEGER PRIMARY KEY AUTOINCREMENT,
+                   user_id INTEGER NOT NULL,
+                   message TEXT NOT NULL,
+                   link TEXT,
+                   is_read BOOLEAN DEFAULT 0,
+                   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                   FOREIGN KEY (user_id) REFERENCES Users(id)
+               )''')
 
-    # Notifications table
-    cursor.execute(
-        '''CREATE TABLE IF NOT EXISTS Notifications (
-               id INTEGER PRIMARY KEY AUTOINCREMENT,
-               user_id INTEGER NOT NULL,
-               message TEXT NOT NULL,
-               link TEXT,
-               is_read BOOLEAN DEFAULT 0,
-               created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-               FOREIGN KEY (user_id) REFERENCES Users(id)
-           )''')
+        # Seed users
+        existing_users = cursor.execute('SELECT COUNT(*) AS count FROM Users').fetchone()['count']
+        if existing_users == 0:
+            users = [
+                ('admin@university.edu', 'Admin', 'Admin User', 'Platform administrator'),
+                ('professor@university.edu', 'Professor', 'Prof. Smith', 'Computer Science Professor'),
+                ('student@university.edu', 'Student', 'Jane Doe', 'Computer Science student'),
+            ]
+            for email, role, name, bio in users:
+                cursor.execute(
+                    'INSERT INTO Users (email, role, name, bio) VALUES (?, ?, ?, ?)',
+                    (email, role, name, bio))
 
-    # Seed users
-    existing_users = cursor.execute('SELECT COUNT(*) AS count FROM Users').fetchone()['count']
-    if existing_users == 0:
-        users = [
-            ('admin@university.edu', 'Admin', 'Admin User', 'Platform administrator'),
-            ('professor@university.edu', 'Professor', 'Prof. Smith', 'Computer Science Professor'),
-            ('student@university.edu', 'Student', 'Jane Doe', 'Computer Science student'),
-        ]
-        for email, role, name, bio in users:
-            cursor.execute(
-                'INSERT INTO Users (email, role, name, bio) VALUES (?, ?, ?, ?)',
-                (email, role, name, bio))
+        # Seed sample documents
+        existing_docs = cursor.execute('SELECT COUNT(*) AS count FROM Documents').fetchone()['count']
+        if existing_docs == 0:
+            sample_docs = [
+                ('Introduction to Flask', 'A comprehensive guide to building web applications with Flask',
+                 'flask, python, web', 'Flask is a lightweight WSGI web application framework...', 'Verified', 2, None),
+                ('Database Design Principles', 'Learn the fundamentals of database design',
+                 'database, sql, design', 'Database design is crucial for building scalable applications...', 'Verified', 2, None),
+                ('My Research Project', 'Final year research on machine learning',
+                 'ml, research, project', 'This project explores the application of machine learning...', 'Pending', 3, None),
+            ]
+            for title, description, tags, content, status, user_id, file_path in sample_docs:
+                cursor.execute(
+                    '''INSERT INTO Documents (title, description, tags, content, status, user_id, file_path)
+                       VALUES (?, ?, ?, ?, ?, ?, ?)''',
+                    (title, description, tags, content, status, user_id, file_path))
 
-    # Seed sample documents
-    existing_docs = cursor.execute('SELECT COUNT(*) AS count FROM Documents').fetchone()['count']
-    if existing_docs == 0:
-        sample_docs = [
-            ('Introduction to Flask', 'A comprehensive guide to building web applications with Flask',
-             'flask, python, web', 'Flask is a lightweight WSGI web application framework...', 'Verified', 2, None),
-            ('Database Design Principles', 'Learn the fundamentals of database design',
-             'database, sql, design', 'Database design is crucial for building scalable applications...', 'Verified', 2, None),
-            ('My Research Project', 'Final year research on machine learning',
-             'ml, research, project', 'This project explores the application of machine learning...', 'Pending', 3, None),
-        ]
-        for title, description, tags, content, status, user_id, file_path in sample_docs:
-            cursor.execute(
-                '''INSERT INTO Documents (title, description, tags, content, status, user_id, file_path)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)''',
-                (title, description, tags, content, status, user_id, file_path))
+        # Seed sample questions
+        existing_questions = cursor.execute('SELECT COUNT(*) AS count FROM Questions').fetchone()['count']
+        if existing_questions == 0:
+            sample_questions = [
+                ('How to integrate Flask with SQLite?',
+                 'I am trying to integrate Flask with SQLite and need advice on best practices.',
+                 'flask, database, sqlite', 'Pending', 3, None),
+                ('What is the difference between GET and POST?',
+                 'Could someone explain when to use GET vs POST requests?',
+                 'http, web, api', 'Pending', 3, None),
+            ]
+            for title, description, tags, status, user_id, file_path in sample_questions:
+                cursor.execute(
+                    '''INSERT INTO Questions (title, description, tags, status, user_id, file_path)
+                       VALUES (?, ?, ?, ?, ?, ?)''',
+                    (title, description, tags, status, user_id, file_path))
 
-    # Seed sample questions
-    existing_questions = cursor.execute('SELECT COUNT(*) AS count FROM Questions').fetchone()['count']
-    if existing_questions == 0:
-        sample_questions = [
-            ('How to integrate Flask with SQLite?',
-             'I am trying to integrate Flask with SQLite and need advice on best practices.',
-             'flask, database, sqlite', 'Pending', 3, None),
-            ('What is the difference between GET and POST?',
-             'Could someone explain when to use GET vs POST requests?',
-             'http, web, api', 'Pending', 3, None),
-        ]
-        for title, description, tags, status, user_id, file_path in sample_questions:
-            cursor.execute(
-                '''INSERT INTO Questions (title, description, tags, status, user_id, file_path)
-                   VALUES (?, ?, ?, ?, ?, ?)''',
-                (title, description, tags, status, user_id, file_path))
-
-    conn.commit()
-    conn.close()
+        conn.commit()
+        print("Database initialized successfully")
+        
+    except Exception as e:
+        print(f"Error initializing database: {str(e)}")
+        if conn:
+            conn.rollback()
+        raise
+    finally:
+        if conn:
+            conn.close()
 
 
 init_db()
@@ -683,6 +753,7 @@ def accept_answer(answer_id: int):
 
 
 @app.route('/bookmark/<item_type>/<int:item_id>', methods=['POST'])
+@app.route('/bookmark/<item_type>/<int:item_id>', methods=['POST'])
 def toggle_bookmark(item_type: str, item_id: int):
     if 'user_id' not in session:
         return jsonify({'error': 'Not logged in'}), 401
@@ -691,24 +762,45 @@ def toggle_bookmark(item_type: str, item_id: int):
         return jsonify({'error': 'Invalid type'}), 400
     
     conn = get_db_connection()
-    
-    existing = conn.execute(
-        'SELECT * FROM Bookmarks WHERE user_id = ? AND item_type = ? AND item_id = ?',
-        (session['user_id'], item_type, item_id)).fetchone()
-    
-    if existing:
-        conn.execute('DELETE FROM Bookmarks WHERE id = ?', (existing['id'],))
-        bookmarked = False
-    else:
-        conn.execute(
-            'INSERT INTO Bookmarks (user_id, item_type, item_id) VALUES (?, ?, ?)',
-            (session['user_id'], item_type, item_id))
-        bookmarked = True
-    
-    conn.commit()
-    conn.close()
-    
-    return jsonify({'bookmarked': bookmarked})
+    try:
+        # Check if the item exists
+        if item_type == 'Document':
+            item_exists = conn.execute('SELECT 1 FROM Documents WHERE id = ?', (item_id,)).fetchone()
+        else:  # Question
+            item_exists = conn.execute('SELECT 1 FROM Questions WHERE id = ?', (item_id,)).fetchone()
+            
+        if not item_exists:
+            return jsonify({'error': f'{item_type} not found'}), 404
+        
+        # Toggle bookmark
+        existing = conn.execute(
+            'SELECT id FROM Bookmarks WHERE user_id = ? AND item_type = ? AND item_id = ?',
+            (session['user_id'], item_type, item_id)
+        ).fetchone()
+        
+        if existing:
+            conn.execute('DELETE FROM Bookmarks WHERE id = ?', (existing['id'],))
+            bookmarked = False
+        else:
+            conn.execute(
+                'INSERT INTO Bookmarks (user_id, item_type, item_id) VALUES (?, ?, ?)',
+                (session['user_id'], item_type, item_id)
+            )
+            bookmarked = True
+        
+        conn.commit()
+        return jsonify({
+            'status': 'success',
+            'bookmarked': bookmarked,
+            'message': f'Successfully {'added to' if bookmarked else 'removed from'} bookmarks'
+        })
+        
+    except Exception as e:
+        conn.rollback()
+        app.logger.error(f'Error toggling bookmark: {str(e)}')
+        return jsonify({'error': 'An error occurred while updating bookmarks'}), 500
+    finally:
+        conn.close()
 
 
 @app.route('/bookmarks')
@@ -792,6 +884,29 @@ def unverify(doc_id: int):
 def uploaded_file(filename: str):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
+
+@app.route('/chat')
+def chat():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    return render_template('chat.html')
+
+@app.route('/api/chat', methods=['POST'])
+def chat_api():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    data = request.get_json()
+    user_input = data.get('message', '').strip()
+    
+    if not user_input:
+        return jsonify({'error': 'Message is required'}), 400
+    
+    try:
+        response = get_chat_response(user_input)
+        return jsonify({'response': response})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 9000))
