@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+
+{% block title %}Post Document{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Post a New Document</h1>
+<form method="post" action="{{ url_for('post_document') }}" enctype="multipart/form-data">
+  <div class="mb-3">
+    <label for="title" class="form-label">Title</label>
+    <input type="text" class="form-control" id="title" name="title" required>
+  </div>
+  <div class="mb-3">
+    <label for="description" class="form-label">Description</label>
+    <textarea class="form-control" id="description" name="description" rows="3" required></textarea>
+  </div>
+  <div class="mb-3">
+    <label for="tags" class="form-label">Tags (comma-separated)</label>
+    <input type="text" class="form-control" id="tags" name="tags">
+  </div>
+  <div class="mb-3">
+    <label for="content" class="form-label">Content</label>
+    <textarea class="form-control" id="content" name="content" rows="5" required></textarea>
+  </div>
+  <div class="mb-3">
+    <label for="file" class="form-label">Attachment (optional)</label>
+    <input class="form-control" type="file" id="file" name="file">
+    <div class="form-text">Attach a file related to your document (e.g. project report, PDF).</div>
+  </div>
+  <button type="submit" class="btn btn-primary">Submit</button>
+</form>
+{% endblock %}

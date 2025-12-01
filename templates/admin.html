@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+
+{% block title %}Admin Review{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Admin Verification</h1>
+{% if docs %}
+  <div class="table-responsive">
+    <table class="table table-striped">
+      <thead>
+        <tr>
+          <th scope="col">Title</th>
+          <th scope="col">Author</th>
+          <th scope="col">Description</th>
+          <th scope="col">Tags</th>
+          <th scope="col">Status</th>
+          <th scope="col">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for doc in docs %}
+        <tr>
+          <td>{{ doc['title'] }}</td>
+          <td>{{ doc['author'] }}</td>
+          <td>{{ doc['description'] }}</td>
+          <td>{{ doc['tags'] }}</td>
+          <td><span class="badge bg-warning text-dark">{{ doc['status'] }}</span></td>
+          <td>
+            <a href="{{ url_for('verify', doc_id=doc['id']) }}" class="btn btn-sm btn-success me-2">Verify</a>
+            <a href="{{ url_for('unverify', doc_id=doc['id']) }}" class="btn btn-sm btn-danger">Unverify</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <div class="alert alert-info" role="alert">No pending documents at this time.</div>
+{% endif %}
+{% endblock %}

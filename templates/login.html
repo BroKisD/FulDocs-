@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+
+{% block title %}Login - Edu Platform{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+  <div class="col-md-5 col-lg-4">
+    <div class="text-center mb-4">
+      <div class="mb-3">
+        <i class="fas fa-graduation-cap fa-4x text-primary"></i>
+      </div>
+      <h2 class="mb-2">Welcome Back</h2>
+      <p class="text-muted">Sign in to your Edu Platform account</p>
+    </div>
+    
+    {% if error %}
+      <div class="alert alert-danger" role="alert">
+        <i class="fas fa-exclamation-circle me-2"></i>{{ error }}
+      </div>
+    {% endif %}
+    
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <form method="post" action="{{ url_for('login') }}">
+          <div class="mb-4">
+            <label for="email" class="form-label">
+              <i class="fas fa-envelope me-1"></i>University Email
+            </label>
+            <input type="email" class="form-control" id="email" name="email" 
+                   placeholder="your.name@university.edu" required autofocus>
+            <div class="form-text">
+              <i class="fas fa-info-circle me-1"></i>
+              Use your university email address ending with @university.edu
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary w-100">
+            <i class="fas fa-sign-in-alt me-2"></i>Sign In
+          </button>
+        </form>
+      </div>
+    </div>
+    
+    <div class="text-center mt-4">
+      <small class="text-muted">
+        <i class="fas fa-shield-alt me-1"></i>
+        Secure authentication via university email
+      </small>
+    </div>
+    
+    <!-- Demo accounts info -->
+    <div class="card mt-4 border-0 bg-light">
+      <div class="card-body">
+        <h6 class="card-title">
+          <i class="fas fa-users me-2"></i>Demo Accounts
+        </h6>
+        <small class="text-muted d-block mb-1">
+          <strong>Student:</strong> student@university.edu
+        </small>
+        <small class="text-muted d-block mb-1">
+          <strong>Professor:</strong> professor@university.edu
+        </small>
+        <small class="text-muted d-block">
+          <strong>Admin:</strong> admin@university.edu
+        </small>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  body {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+  }
+  
+  .card {
+    border-radius: 15px;
+  }
+  
+  .form-control:focus {
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+  }
+</style>
+{% endblock %}

@@ -1,0 +1,259 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ question['title'] }} - Edu Platform{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-lg-9">
+    <!-- Question Card -->
+    <div class="card mb-4">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start mb-3">
+          <h2 class="mb-0">{{ question['title'] }}</h2>
+          <span class="badge bg-{{ 'success' if question['status'] == 'Verified' else 'warning' }}">
+            {{ question['status'] }}
+          </span>
+        </div>
+        
+        <div class="mb-3">
+          <a href="{{ url_for('profile', user_id=question['author_id']) }}" class="text-decoration-none">
+            <small class="text-muted">
+              <i class="fas fa-user me-1"></i>
+              <strong>{{ question['author_name'] or question['author'] }}</strong>
+            </small>
+          </a>
+          <small class="text-muted ms-3">
+            <i class="fas fa-calendar me-1"></i>
+            {{ question['created_at'][:10] if question['created_at'] else 'N/A' }}
+          </small>
+          <small class="text-muted ms-3">
+            <i class="fas fa-eye me-1"></i>
+            {{ question['views'] or 0 }} views
+          </small>
+        </div>
+        
+        <p class="lead">{{ question['description'] }}</p>
+        
+        {% if question['tags'] %}
+        <div class="mb-3">
+          {% for tag in question['tags'].split(',') %}
+            <span class="badge bg-light text-dark border me-1">
+              <i class="fas fa-tag me-1"></i>{{ tag.strip() }}
+            </span>
+          {% endfor %}
+        </div>
+        {% endif %}
+        
+        {% if question['file_path'] %}
+          <a href="{{ url_for('uploaded_file', filename=question['file_path']) }}" class="btn btn-outline-primary">
+            <i class="fas fa-paperclip me-1"></i>View Attachment
+          </a>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Answers Section -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h3><i class="fas fa-comments me-2"></i>{{ answers|length }} Answer{{ 's' if answers|length != 1 else '' }}</h3>
+    </div>
+
+    {% if answers %}
+      {% for answer in answers %}
+        <div class="card mb-3 {% if answer['is_accepted'] %}border-success{% endif %}">
+          <div class="card-body">
+            {% if answer['is_accepted'] %}
+            <div class="alert alert-success mb-3">
+              <i class="fas fa-check-circle me-1"></i>
+              <strong>Accepted Answer</strong>
+            </div>
+            {% endif %}
+            
+            <div class="row">
+              <!-- Vote Section -->
+              <div class="col-auto text-center">
+                <button class="btn btn-sm vote-btn {% if user_votes.get(answer['id']) == 'up' %}btn-success{% else %}btn-outline-secondary{% endif %}" 
+                        data-answer-id="{{ answer['id'] }}" 
+                        data-vote-type="up">
+                  <i class="fas fa-chevron-up"></i>
+                </button>
+                <div class="my-2">
+                  <strong class="score" data-answer-id="{{ answer['id'] }}">
+                    {{ answer['upvotes'] - answer['downvotes'] }}
+                  </strong>
+                </div>
+                <button class="btn btn-sm vote-btn {% if user_votes.get(answer['id']) == 'down' %}btn-danger{% else %}btn-outline-secondary{% endif %}" 
+                        data-answer-id="{{ answer['id'] }}" 
+                        data-vote-type="down">
+                  <i class="fas fa-chevron-down"></i>
+                </button>
+                
+                {% if session.user_id == question['user_id'] and not answer['is_accepted'] %}
+                <button class="btn btn-sm btn-outline-success mt-3 accept-btn" 
+                        data-answer-id="{{ answer['id'] }}">
+                  <i class="fas fa-check"></i>
+                </button>
+                {% endif %}
+              </div>
+              
+              <!-- Answer Content -->
+              <div class="col">
+                <p style="white-space: pre-wrap;">{{ answer['content'] }}</p>
+                
+                <div class="mt-3 text-end">
+                  <small class="text-muted">
+                    <a href="{{ url_for('profile', user_id=answer['author_id']) }}" class="text-decoration-none">
+                      <i class="fas fa-user me-1"></i>
+                      <strong>{{ answer['author_name'] or answer['author'] }}</strong>
+                    </a>
+                    <span class="ms-2">
+                      <i class="fas fa-clock me-1"></i>
+                      {{ answer['created_at'][:16] if answer['created_at'] else 'N/A' }}
+                    </span>
+                  </small>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    {% else %}
+      <div class="alert alert-info" role="alert">
+        <i class="fas fa-info-circle me-2"></i>
+        No answers yet. Be the first to answer!
+      </div>
+    {% endif %}
+
+    <!-- Answer Form -->
+    {% if session.get('user_id') %}
+      <div class="card mt-4">
+        <div class="card-body">
+          <h5 class="card-title">
+            <i class="fas fa-pen me-2"></i>Your Answer
+          </h5>
+          <form method="post" action="{{ url_for('question_detail', question_id=question['id']) }}">
+            <div class="mb-3">
+              <textarea class="form-control" id="content" name="content" rows="6" 
+                        placeholder="Write your answer here..." required></textarea>
+              <div class="form-text">
+                <i class="fas fa-info-circle me-1"></i>
+                Be clear and specific. Provide examples or references if possible.
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary">
+              <i class="fas fa-paper-plane me-1"></i>Post Answer
+            </button>
+          </form>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Sidebar -->
+  <div class="col-lg-3">
+    <div class="card mb-3">
+      <div class="card-body">
+        <h6 class="card-title">About This Question</h6>
+        <ul class="list-unstyled mb-0">
+          <li class="mb-2">
+            <i class="fas fa-calendar text-muted me-2"></i>
+            <small>Asked {{ question['created_at'][:10] if question['created_at'] else 'N/A' }}</small>
+          </li>
+          <li class="mb-2">
+            <i class="fas fa-eye text-muted me-2"></i>
+            <small>{{ question['views'] or 0 }} views</small>
+          </li>
+          <li>
+            <i class="fas fa-comments text-muted me-2"></i>
+            <small>{{ answers|length }} answer{{ 's' if answers|length != 1 else '' }}</small>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <h6 class="card-title">Related Tags</h6>
+        {% if question['tags'] %}
+          <div>
+            {% for tag in question['tags'].split(',') %}
+              <a href="{{ url_for('search') }}" class="badge bg-light text-dark border mb-2 text-decoration-none">
+                {{ tag.strip() }}
+              </a>
+            {% endfor %}
+          </div>
+        {% else %}
+          <small class="text-muted">No tags</small>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Vote functionality
+  document.querySelectorAll('.vote-btn').forEach(btn => {
+    btn.addEventListener('click', async function() {
+      const answerId = this.dataset.answerId;
+      const voteType = this.dataset.voteType;
+      
+      try {
+        const response = await fetch(`/answer/${answerId}/vote`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ vote_type: voteType })
+        });
+        
+        const data = await response.json();
+        
+        // Update score
+        document.querySelector(`.score[data-answer-id="${answerId}"]`).textContent = data.score;
+        
+        // Update button states
+        const upBtn = document.querySelector(`.vote-btn[data-answer-id="${answerId}"][data-vote-type="up"]`);
+        const downBtn = document.querySelector(`.vote-btn[data-answer-id="${answerId}"][data-vote-type="down"]`);
+        
+        // Reset both buttons
+        upBtn.className = 'btn btn-sm vote-btn btn-outline-secondary';
+        downBtn.className = 'btn btn-sm vote-btn btn-outline-secondary';
+        
+        // Highlight active vote
+        if (data.score > 0) {
+          upBtn.classList.remove('btn-outline-secondary');
+          upBtn.classList.add('btn-success');
+        } else if (data.score < 0) {
+          downBtn.classList.remove('btn-outline-secondary');
+          downBtn.classList.add('btn-danger');
+        }
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    });
+  });
+
+  // Accept answer functionality
+  document.querySelectorAll('.accept-btn').forEach(btn => {
+    btn.addEventListener('click', async function() {
+      const answerId = this.dataset.answerId;
+      
+      try {
+        const response = await fetch(`/answer/${answerId}/accept`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          location.reload();
+        }
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    });
+  });
+</script>
+{% endblock %}

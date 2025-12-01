@@ -1,0 +1,156 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ user['name'] or user['email'] }} - Profile{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-lg-4 mb-4">
+    <!-- Profile Card -->
+    <div class="card">
+      <div class="card-body text-center">
+        <div class="mb-3">
+          <div class="rounded-circle bg-primary text-white d-inline-flex align-items-center justify-content-center" 
+               style="width: 100px; height: 100px; font-size: 2.5rem;">
+            <i class="fas fa-user"></i>
+          </div>
+        </div>
+        
+        <h4 class="mb-1">{{ user['name'] or user['email'].split('@')[0] }}</h4>
+        <p class="text-muted mb-2">{{ user['email'] }}</p>
+        <span class="badge bg-primary">{{ user['role'] }}</span>
+        
+        {% if user['bio'] %}
+          <p class="mt-3 text-muted">{{ user['bio'] }}</p>
+        {% endif %}
+        
+        {% if session.get('user_id') == user['id'] %}
+          <a href="{{ url_for('edit_profile') }}" class="btn btn-outline-primary btn-sm mt-3">
+            <i class="fas fa-edit me-1"></i>Edit Profile
+          </a>
+        {% endif %}
+        
+        <hr class="my-3">
+        
+        <small class="text-muted">
+          <i class="fas fa-calendar me-1"></i>
+          Joined {{ user['created_at'][:10] if user['created_at'] else 'N/A' }}
+        </small>
+      </div>
+    </div>
+
+    <!-- Stats Card -->
+    <div class="card mt-3">
+      <div class="card-body">
+        <h6 class="card-title mb-3">
+          <i class="fas fa-chart-bar me-2"></i>Contributions
+        </h6>
+        <div class="row text-center">
+          <div class="col-4">
+            <div class="mb-1">
+              <i class="fas fa-file-alt fa-2x text-primary"></i>
+            </div>
+            <h5 class="mb-0">{{ stats['documents'] }}</h5>
+            <small class="text-muted">Documents</small>
+          </div>
+          <div class="col-4">
+            <div class="mb-1">
+              <i class="fas fa-question-circle fa-2x text-warning"></i>
+            </div>
+            <h5 class="mb-0">{{ stats['questions'] }}</h5>
+            <small class="text-muted">Questions</small>
+          </div>
+          <div class="col-4">
+            <div class="mb-1">
+              <i class="fas fa-comments fa-2x text-success"></i>
+            </div>
+            <h5 class="mb-0">{{ stats['answers'] }}</h5>
+            <small class="text-muted">Answers</small>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-8">
+    <!-- Navigation Tabs -->
+    <ul class="nav nav-tabs mb-4" id="profileTabs" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="documents-tab" data-bs-toggle="tab" 
+                data-bs-target="#documents" type="button">
+          <i class="fas fa-file-alt me-1"></i>Documents
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="questions-tab" data-bs-toggle="tab" 
+                data-bs-target="#questions" type="button">
+          <i class="fas fa-question-circle me-1"></i>Questions
+        </button>
+      </li>
+    </ul>
+
+    <!-- Tab Content -->
+    <div class="tab-content" id="profileTabsContent">
+      <!-- Documents Tab -->
+      <div class="tab-pane fade show active" id="documents" role="tabpanel">
+        {% if docs %}
+          {% for doc in docs %}
+            <div class="card mb-3">
+              <div class="card-body">
+                <h5 class="card-title">
+                  {{ doc['title'] }}
+                  <span class="badge bg-{{ 'success' if doc['status'] == 'Verified' else 'warning' }} ms-2">
+                    {{ doc['status'] }}
+                  </span>
+                </h5>
+                <p class="card-text text-muted">{{ doc['description'][:150] }}...</p>
+                <small class="text-muted">
+                  <i class="fas fa-calendar me-1"></i>
+                  {{ doc['created_at'][:10] if doc['created_at'] else 'N/A' }}
+                </small>
+                {% if doc['file_path'] %}
+                  <a href="{{ url_for('uploaded_file', filename=doc['file_path']) }}" 
+                     class="btn btn-sm btn-outline-primary mt-2">
+                    <i class="fas fa-download me-1"></i>Download
+                  </a>
+                {% endif %}
+              </div>
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="text-center py-5">
+            <i class="fas fa-file-alt fa-3x text-muted mb-3"></i>
+            <p class="text-muted">No documents yet</p>
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- Questions Tab -->
+      <div class="tab-pane fade" id="questions" role="tabpanel">
+        {% if questions %}
+          {% for question in questions %}
+            <div class="card mb-3">
+              <div class="card-body">
+                <h5 class="card-title">{{ question['title'] }}</h5>
+                <p class="card-text text-muted">{{ question['description'][:150] }}...</p>
+                <small class="text-muted">
+                  <i class="fas fa-calendar me-1"></i>
+                  {{ question['created_at'][:10] if question['created_at'] else 'N/A' }}
+                </small>
+                <a href="{{ url_for('question_detail', question_id=question['id']) }}" 
+                   class="btn btn-sm btn-primary mt-2">
+                  <i class="fas fa-arrow-right me-1"></i>View Question
+                </a>
+              </div>
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="text-center py-5">
+            <i class="fas fa-question-circle fa-3x text-muted mb-3"></i>
+            <p class="text-muted">No questions yet</p>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

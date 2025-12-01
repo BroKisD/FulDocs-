@@ -1,0 +1,148 @@
+{% extends 'base.html' %}
+
+{% block title %}Feed - Edu Platform{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1><i class="fas fa-stream me-2"></i>Feed</h1>
+  <div>
+    <a href="{{ url_for('post_document') }}" class="btn btn-primary me-2">
+      <i class="fas fa-plus me-1"></i>Post Document
+    </a>
+    <a href="{{ url_for('ask') }}" class="btn btn-outline-primary">
+      <i class="fas fa-question me-1"></i>Ask Question
+    </a>
+  </div>
+</div>
+
+{% if items %}
+  <div class="row">
+    {% for item in items %}
+      <div class="col-md-12 mb-3">
+        <div class="card">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+              <div class="flex-grow-1">
+                <h5 class="card-title d-inline-block">
+                  {{ item['title'] }}
+                </h5>
+                <span class="badge bg-secondary ms-2">
+                  <i class="fas fa-{{ 'file-alt' if item['type'] == 'Document' else 'question-circle' }} me-1"></i>
+                  {{ item['type'] }}
+                </span>
+                {% if item['status'] == 'Verified' %}
+                  <span class="badge bg-success ms-1">
+                    <i class="fas fa-check-circle me-1"></i>Verified
+                  </span>
+                {% elif item['status'] == 'Pending' %}
+                  <span class="badge bg-warning ms-1">
+                    <i class="fas fa-clock me-1"></i>Pending
+                  </span>
+                {% endif %}
+              </div>
+              <button class="btn btn-sm btn-outline-secondary bookmark-btn" 
+                      data-type="{{ item['type'] }}" 
+                      data-id="{{ item['id'] }}">
+                <i class="fas fa-bookmark"></i>
+              </button>
+            </div>
+            
+            <div class="mb-2">
+              <a href="{{ url_for('profile', user_id=item.author_id) }}" class="text-decoration-none">
+                <small class="text-muted">
+                  <i class="fas fa-user me-1"></i>
+                  <strong>{{ item.author_name or item.author }}</strong>
+                </small>
+              </a>
+              <small class="text-muted ms-3">
+                <i class="fas fa-calendar me-1"></i>
+                {{ item.created_at[:10] if item.created_at is not none else 'N/A' }}
+              </small>
+              {% if item.views is defined and item.views is not none %}
+              <small class="text-muted ms-3">
+                <i class="fas fa-eye me-1"></i>{{ item.views }} views
+              </small>
+              {% endif %}
+              {% if item.answer_count is defined %}
+              <small class="text-muted ms-3">
+                <i class="fas fa-comments me-1"></i>{{ item.answer_count }} answers
+              </small>
+              {% endif %}
+            </div>
+            
+            <p class="card-text">{{ item['description'][:200] }}{% if item['description']|length > 200 %}...{% endif %}</p>
+            
+            {% if item['tags'] %}
+            <div class="mb-2">
+              {% for tag in item['tags'].split(',') %}
+                <span class="badge bg-light text-dark border me-1">
+                  <i class="fas fa-tag me-1"></i>{{ tag.strip() }}
+                </span>
+              {% endfor %}
+            </div>
+            {% endif %}
+            
+            <div class="d-flex gap-2 mt-3">
+              {% if item['type'] == 'Document' %}
+                {% if item['file_path'] %}
+                  <a href="{{ url_for('uploaded_file', filename=item['file_path']) }}" class="btn btn-sm btn-outline-primary">
+                    <i class="fas fa-download me-1"></i>Download
+                  </a>
+                {% endif %}
+              {% elif item['type'] == 'Question' %}
+                <a href="{{ url_for('question_detail', question_id=item['id']) }}" class="btn btn-sm btn-primary">
+                  <i class="fas fa-arrow-right me-1"></i>View Question
+                </a>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="text-center py-5">
+    <i class="fas fa-inbox fa-4x text-muted mb-3"></i>
+    <h4 class="text-muted">No posts available</h4>
+    <p class="text-muted">Be the first to share content!</p>
+    <a href="{{ url_for('post_document') }}" class="btn btn-primary me-2">Post Document</a>
+    <a href="{{ url_for('ask') }}" class="btn btn-outline-primary">Ask Question</a>
+  </div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Bookmark functionality
+  document.querySelectorAll('.bookmark-btn').forEach(btn => {
+    btn.addEventListener('click', async function(e) {
+      e.preventDefault();
+      const type = this.dataset.type;
+      const id = this.dataset.id;
+      
+      try {
+        const response = await fetch(`/bookmark/${type}/${id}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        const data = await response.json();
+        
+        if (data.bookmarked) {
+          this.innerHTML = '<i class="fas fa-bookmark"></i>';
+          this.classList.remove('btn-outline-secondary');
+          this.classList.add('btn-warning');
+        } else {
+          this.innerHTML = '<i class="fas fa-bookmark"></i>';
+          this.classList.remove('btn-warning');
+          this.classList.add('btn-outline-secondary');
+        }
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    });
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+
+{% block title %}Ask a Question{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Ask a Question</h1>
+<form method="post" action="{{ url_for('ask') }}" enctype="multipart/form-data">
+  <div class="mb-3">
+    <label for="title" class="form-label">Title</label>
+    <input type="text" class="form-control" id="title" name="title" required>
+  </div>
+  <div class="mb-3">
+    <label for="description" class="form-label">Description</label>
+    <textarea class="form-control" id="description" name="description" rows="4" required></textarea>
+  </div>
+  <div class="mb-3">
+    <label for="tags" class="form-label">Tags (comma-separated)</label>
+    <input type="text" class="form-control" id="tags" name="tags">
+  </div>
+  <div class="mb-3">
+    <label for="file" class="form-label">Attachment (optional)</label>
+    <input class="form-control" type="file" id="file" name="file">
+    <div class="form-text">Attach a file if it helps illustrate your question.</div>
+  </div>
+  <button type="submit" class="btn btn-primary">Submit Question</button>
+</form>
+{% endblock %}

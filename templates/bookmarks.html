@@ -1,0 +1,147 @@
+{% extends 'base.html' %}
+
+{% block title %}Bookmarks - Edu Platform{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+  <h1><i class="fas fa-bookmark me-2"></i>My Bookmarks</h1>
+  <p class="text-muted">Content you've saved for later</p>
+</div>
+
+{% if items %}
+  <div class="row">
+    {% for item in items %}
+      <div class="col-md-12 mb-3">
+        <div class="card">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start">
+              <div class="flex-grow-1">
+                <h5 class="card-title">
+                  {{ item.title }}
+                  <span class="badge bg-secondary ms-2">
+                    <i class="fas fa-{{ 'file-alt' if item.type == 'Document' else 'question-circle' }} me-1"></i>
+                    {{ item.type }}
+                  </span>
+                  {% if item.status is defined and item.status %}
+                    {% if item.status == 'Verified' %}
+                      <span class="badge bg-success ms-1">
+                        <i class="fas fa-check-circle me-1"></i>Verified
+                      </span>
+                    {% elif item.status == 'Pending' %}
+                      <span class="badge bg-warning ms-1">Pending</span>
+                    {% endif %}
+                  {% endif %}
+                </h5>
+              </div>
+              <button class="btn btn-sm btn-warning bookmark-btn" 
+                      data-type="{{ item['type'] }}" 
+                      data-id="{{ item['id'] }}">
+                <i class="fas fa-bookmark"></i>
+              </button>
+            </div>
+            
+            <div class="mb-2">
+              <a href="{{ url_for('profile', user_id=item.author_id) }}" class="text-decoration-none">
+                <small class="text-muted">
+                  <i class="fas fa-user me-1"></i>
+                  <strong>{% if item.author_name %}{{ item.author_name }}{% elif item.author is defined %}{{ item.author }}{% else %}Unknown{% endif %}</strong>
+                </small>
+              </a>
+              <small class="text-muted ms-3">
+                <i class="fas fa-calendar me-1"></i>
+                {{ item.created_at[:10] if item.created_at is not none else 'N/A' }}
+              </small>
+              {% if item.views is defined and item.views is not none %}
+              <small class="text-muted ms-3">
+                <i class="fas fa-eye me-1"></i>{{ item.views }} views
+              </small>
+              {% endif %}
+              {% if item.answer_count is defined %}
+              <small class="text-muted ms-3">
+                <i class="fas fa-comments me-1"></i>{{ item.answer_count }} answers
+              </small>
+              {% endif %}
+            </div>
+            
+            <p class="card-text">
+              {% if item.description %}
+                {{ item.description[:200] }}{% if item.description|length > 200 %}...{% endif %}
+              {% endif %}
+            </p>
+            
+            {% if item.tags %}
+            <div class="mb-2">
+              {% for tag in item.tags.split(',') %}
+                <span class="badge bg-light text-dark border me-1">
+                  <i class="fas fa-tag me-1"></i>{{ tag.strip() }}
+                </span>
+              {% endfor %}
+            </div>
+            {% endif %}
+            
+            <div class="d-flex gap-2 mt-3">
+              {% if item.type == 'Document' %}
+                {% if item.file_path %}
+                  <a href="{{ url_for('uploaded_file', filename=item.file_path) }}" class="btn btn-sm btn-outline-primary">
+                    <i class="fas fa-download me-1"></i>Download
+                  </a>
+                {% endif %}
+              {% elif item.type == 'Question' %}
+                <a href="{{ url_for('question_detail', question_id=item.id) }}" class="btn btn-sm btn-primary">
+                  <i class="fas fa-arrow-right me-1"></i>View Question
+                </a>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="text-center py-5">
+    <i class="fas fa-bookmark fa-4x text-muted mb-3"></i>
+    <h4 class="text-muted">No bookmarks yet</h4>
+    <p class="text-muted">Start bookmarking content to save it for later</p>
+    <a href="{{ url_for('feed') }}" class="btn btn-primary">Browse Content</a>
+  </div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Bookmark removal functionality
+  document.querySelectorAll('.bookmark-btn').forEach(btn => {
+    btn.addEventListener('click', async function(e) {
+      e.preventDefault();
+      const type = this.dataset.type;
+      const id = this.dataset.id;
+      const card = this.closest('.card').parentElement;
+      
+      try {
+        const response = await fetch(`/bookmark/${type}/${id}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        const data = await response.json();
+        
+        // Remove card with animation
+        card.style.opacity = '0';
+        card.style.transform = 'translateX(-20px)';
+        setTimeout(() => {
+          card.remove();
+          
+          // Check if no more bookmarks
+          if (document.querySelectorAll('.card').length === 0) {
+            location.reload();
+          }
+        }, 300);
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    });
+  });
+</script>
+{% endblock %}
