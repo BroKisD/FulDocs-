@@ -262,8 +262,8 @@ def init_db():
         if existing_users == 0:
             users = [
                 ('admin@university.edu', 'Admin', 'Admin User', 'Platform administrator'),
-                ('professor@university.edu', 'Professor', 'Prof. Smith', 'Computer Science Professor'),
-                ('student@university.edu', 'Student', 'Jane Doe', 'Computer Science student'),
+                ('professor@university.edu', 'Professor', 'Prof. Quan Le', 'HCE Professor'),
+                ('student@university.edu', 'Student', 'Student', 'HCE student'),
             ]
             for email, role, name, bio in users:
                 cursor.execute(
