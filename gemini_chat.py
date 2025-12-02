@@ -27,7 +27,7 @@ def get_chat_response(user_input):
             database_context = get_database_context()
             
             # Create a prompt that includes all contexts
-            prompt = f"""You are an AI assistant for an educational platform. 
+            prompt = f"""You are an AI assistant for Fulbright University Vietnam educational platform. 
             Use the following information to answer questions. The information comes from:
             1. Uploaded documents (if any)
             2. Database content (recent documents, questions, and answers)

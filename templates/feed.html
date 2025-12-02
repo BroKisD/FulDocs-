@@ -76,11 +76,27 @@
                 </span>
                 {% if item['status'] == 'Verified' %}
                   <span class="badge bg-success ms-1">
-                    <i class="fas fa-check-circle me-1"></i>Verified
+                    <i class="fas fa-check-circle me-1"></i>
+                    {% if item['verification_requested'] and item['verified_by_name'] %}
+                      Verified by {{ item['verified_by_name'] }}
+                    {% else %}
+                      Verified
+                    {% endif %}
                   </span>
                 {% elif item['status'] == 'Pending' %}
                   <span class="badge bg-warning ms-1">
-                    <i class="fas fa-clock me-1"></i>Pending
+                    <i class="fas fa-clock me-1"></i>
+                    {% if item['verification_requested'] %}
+                      Awaiting Verification
+                    {% else %}
+                      Pending
+                    {% endif %}
+                  </span>
+                {% endif %}
+                
+                {% if item['verified_at'] %}
+                  <span class="badge bg-info ms-1" title="Verified on {{ item['verified_at'] }}">
+                    <i class="fas fa-user-check me-1"></i>Verified
                   </span>
                 {% endif %}
               </div>

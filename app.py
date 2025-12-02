@@ -67,17 +67,23 @@ def init_db():
         if 'created_at' not in existing_cols:
             cursor.execute('ALTER TABLE Users ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
             
-        # Create other tables...
+        # Create Documents table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS Documents (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 title TEXT NOT NULL,
                 description TEXT,
-                file_path TEXT NOT NULL,
+                content TEXT,
+                tags TEXT,
+                file_path TEXT,
                 user_id INTEGER NOT NULL,
                 status TEXT DEFAULT 'Pending',
+                verification_requested BOOLEAN DEFAULT 0,
+                verified_by INTEGER,
+                verified_at TIMESTAMP,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES Users (id)
+                FOREIGN KEY (user_id) REFERENCES Users(id),
+                FOREIGN KEY (verified_by) REFERENCES Users(id)
             )
         ''')
         
@@ -86,6 +92,9 @@ def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 title TEXT NOT NULL,
                 description TEXT,
+                tags TEXT,
+                status TEXT DEFAULT 'Open',
+                file_path TEXT,
                 user_id INTEGER NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES Users (id)
@@ -117,7 +126,20 @@ def init_db():
             )
         ''')
         
-        # Create indexes
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS Votes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                answer_id INTEGER NOT NULL,
+                vote_type TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES Users(id),
+                FOREIGN KEY (answer_id) REFERENCES Answers(id),
+                UNIQUE(user_id, answer_id)
+            )
+        ''')
+        
+        # Create indexes after all tables are created
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_documents_user ON Documents(user_id)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_questions_user ON Questions(user_id)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_answers_question ON Answers(question_id)')
@@ -253,11 +275,11 @@ def init_db():
         if existing_docs == 0:
             sample_docs = [
                 ('Introduction to Flask', 'A comprehensive guide to building web applications with Flask',
-                 'flask, python, web', 'Flask is a lightweight WSGI web application framework...', 'Verified', 2, None),
+                 'flask, python, web', 'Flask is a lightweight WSGI web application framework...', 'Verified', 2, 'sample_flask_guide.pdf'),
                 ('Database Design Principles', 'Learn the fundamentals of database design',
-                 'database, sql, design', 'Database design is crucial for building scalable applications...', 'Verified', 2, None),
+                 'database, sql, design', 'Database design is crucial for building scalable applications...', 'Verified', 2, 'database_design.pdf'),
                 ('My Research Project', 'Final year research on machine learning',
-                 'ml, research, project', 'This project explores the application of machine learning...', 'Pending', 3, None),
+                 'ml, research, project', 'This project explores the application of machine learning...', 'Pending', 3, 'ml_research.pdf'),
             ]
             for title, description, tags, content, status, user_id, file_path in sample_docs:
                 cursor.execute(
@@ -266,15 +288,12 @@ def init_db():
                     (title, description, tags, content, status, user_id, file_path))
 
         # Seed sample questions
-        existing_questions = cursor.execute('SELECT COUNT(*) AS count FROM Questions').fetchone()['count']
+        existing_questions = cursor.execute('SELECT COUNT(*) FROM Questions').fetchone()[0]
         if existing_questions == 0:
             sample_questions = [
-                ('How to integrate Flask with SQLite?',
-                 'I am trying to integrate Flask with SQLite and need advice on best practices.',
-                 'flask, database, sqlite', 'Pending', 3, None),
-                ('What is the difference between GET and POST?',
-                 'Could someone explain when to use GET vs POST requests?',
-                 'http, web, api', 'Pending', 3, None),
+                ('How do I use Flask?', 'I am new to Flask and need help getting started.', 'flask, python', 'Open', 2, 'flask_help.pdf'),
+                ('Database connection issue', 'I am having trouble connecting to my database.', 'database, sql', 'Open', 2, 'db_connection_guide.pdf'),
+                ('Best practices for web development', 'What are some best practices for modern web development?', 'web, development', 'Open', 3, 'web_dev_best_practices.pdf')
             ]
             for title, description, tags, status, user_id, file_path in sample_questions:
                 cursor.execute(
@@ -406,21 +425,26 @@ def feed():
     
     conn = get_db_connection()
     
-    # Fetch verified documents and all questions
+    # Fetch verified documents and all questions with verification info
     docs = conn.execute(
         '''SELECT Documents.id AS id, Documents.title AS title,
                   Documents.description AS description,
                   Documents.tags AS tags,
                   Documents.status AS status,
                   Documents.views AS views,
+                  Documents.verification_requested AS verification_requested,
+                  Documents.verified_at AS verified_at,
                   Users.email AS author,
                   Users.name AS author_name,
                   Users.id AS author_id,
                   Documents.file_path AS file_path,
                   Documents.created_at AS created_at,
-                  'Document' AS type
+                  'Document' AS type,
+                  prof.id AS verified_by_id,
+                  prof.name AS verified_by_name
            FROM Documents
            JOIN Users ON Documents.user_id = Users.id
+           LEFT JOIN Users AS prof ON Documents.verified_by = prof.id
            WHERE Documents.status = 'Verified'
            ORDER BY Documents.created_at DESC''').fetchall()
     
@@ -529,11 +553,15 @@ def post_document():
     if 'user_id' not in session:
         return redirect(url_for('login'))
     
+    conn = get_db_connection()
+    
     if request.method == 'POST':
         title = request.form.get('title', '').strip()
         description = request.form.get('description', '').strip()
         tags = request.form.get('tags', '').strip()
         content = request.form.get('content', '').strip()
+        request_verification = request.form.get('request_verification') == 'on'
+        professor_id = request.form.get('professor_id')
         
         uploaded_file = request.files.get('file')
         file_path = None
@@ -546,17 +574,36 @@ def post_document():
             file_path = filename
         
         if title:
-            conn = get_db_connection()
-            conn.execute(
-                '''INSERT INTO Documents (title, description, tags, content,
+            if request_verification and professor_id:
+                # Insert with verification request
+                conn.execute(
+                    '''INSERT INTO Documents (title, description, tags, content,
+                                          status, user_id, file_path, verification_requested, verified_by)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                    (title, description, tags, content, 'Pending',
+                     session['user_id'], file_path, 1, professor_id))
+                flash('Document submitted with verification request!', 'success')
+            else:
+                # Insert without verification request
+                conn.execute(
+                    '''INSERT INTO Documents (title, description, tags, content,
                                           status, user_id, file_path)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)''',
-                (title, description, tags, content, 'Pending',
-                 session['user_id'], file_path))
+                       VALUES (?, ?, ?, ?, ?, ?, ?)''',
+                    (title, description, tags, content, 'Pending',
+                     session['user_id'], file_path))
+                flash('Document submitted for review!', 'success')
+            
             conn.commit()
             conn.close()
-            flash('Document submitted for review!', 'success')
             return redirect(url_for('feed'))
+    
+    # Get list of professors for the dropdown
+    professors = conn.execute(
+        'SELECT id, name FROM Users WHERE role = "Professor" ORDER BY name'
+    ).fetchall()
+    conn.close()
+    
+    return render_template('post.html', professors=professors)
     
     return render_template('post.html')
 

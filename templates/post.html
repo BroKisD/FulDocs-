@@ -26,6 +26,32 @@
     <input class="form-control" type="file" id="file" name="file">
     <div class="form-text">Attach a file related to your document (e.g. project report, PDF).</div>
   </div>
+  
+  <div class="mb-3 form-check">
+    <input type="checkbox" class="form-check-input" id="request_verification" name="request_verification">
+    <label class="form-check-label" for="request_verification">Request verification from a professor</label>
+  </div>
+  
+  <div class="mb-3" id="professor_select_container" style="display: none;">
+    <label for="professor_id" class="form-label">Select Professor</label>
+    <select class="form-select" id="professor_id" name="professor_id">
+      <option value="" selected>-- Select a professor --</option>
+      {% for prof in professors %}
+      <option value="{{ prof.id }}">{{ prof.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  
   <button type="submit" class="btn btn-primary">Submit</button>
+  
+  <script>
+    document.getElementById('request_verification').addEventListener('change', function() {
+      const container = document.getElementById('professor_select_container');
+      container.style.display = this.checked ? 'block' : 'none';
+      if (!this.checked) {
+        document.getElementById('professor_id').value = '';
+      }
+    });
+  </script>
 </form>
 {% endblock %}
