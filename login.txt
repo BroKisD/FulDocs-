@@ -1,3 +1,0 @@
-student@university.edu (Student role)
-professor@university.edu (Professor role)
-admin@university.edu (Admin role)
