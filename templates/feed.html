@@ -3,6 +3,50 @@
 {% block title %}Feed - FulDocs{% endblock %}
 
 {% block content %}
+<!-- Document Preview Modal -->
+<div class="modal fade" id="documentPreviewModal" tabindex="-1" aria-labelledby="documentPreviewModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="documentPreviewModalLabel">Document Preview</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="text-center" id="previewLoading">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <p class="mt-2">Loading document preview...</p>
+        </div>
+        <div id="previewContent" style="display: none;">
+          <div class="mb-3">
+            <h4 id="previewTitle"></h4>
+            <div class="d-flex align-items-center mb-2">
+              <img id="previewAuthorAvatar" src="" alt="Author" class="rounded-circle me-2" width="32" height="32" onerror="this.src='https://ui-avatars.com/api/?name='+encodeURIComponent(document.getElementById('previewAuthor').textContent)">
+              <span class="text-muted small">
+                <span id="previewAuthor"></span> • 
+                <span id="previewDate"></span>
+              </span>
+            </div>
+            <p id="previewDescription" class="text-muted"></p>
+          </div>
+          <div class="border rounded p-3 bg-light">
+            <div id="filePreview">
+              <!-- Preview content will be loaded here -->
+            </div>
+          </div>
+        </div>
+        <div id="previewError" class="alert alert-danger" style="display: none;"></div>
+      </div>
+      <div class="modal-footer">
+        <a id="downloadBtn" href="#" class="btn btn-primary me-auto">
+          <i class="fas fa-download me-1"></i>Download
+        </a>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
 <div class="d-flex justify-content-between align-items-center mb-4">
   <h1><i class="fas fa-stream me-2"></i>Feed</h1>
   <div>
@@ -88,6 +132,9 @@
                   <a href="{{ url_for('uploaded_file', filename=item['file_path']) }}" class="btn btn-sm btn-outline-primary">
                     <i class="fas fa-download me-1"></i>Download
                   </a>
+                  <button class="btn btn-sm btn-outline-secondary preview-doc" data-doc-id="{{ item['id'] }}">
+                    <i class="fas fa-eye me-1"></i>Preview
+                  </button>
                 {% endif %}
               {% elif item['type'] == 'Question' %}
                 <a href="{{ url_for('question_detail', question_id=item['id']) }}" class="btn btn-sm btn-primary">
@@ -113,6 +160,89 @@
 
 {% block scripts %}
 <script>
+  // Initialize document preview modal
+  const previewModal = new bootstrap.Modal(document.getElementById('documentPreviewModal'));
+  
+  // Handle document preview button click
+  document.querySelectorAll('.preview-doc').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const docId = this.getAttribute('data-doc-id');
+      showDocumentPreview(docId);
+    });
+  });
+  
+  // Function to show document preview
+  async function showDocumentPreview(docId) {
+    const previewContent = document.getElementById('previewContent');
+    const previewLoading = document.getElementById('previewLoading');
+    const previewError = document.getElementById('previewError');
+    
+    // Reset UI
+    previewContent.style.display = 'none';
+    previewLoading.style.display = 'block';
+    previewError.style.display = 'none';
+    
+    try {
+      // Show the modal
+      previewModal.show();
+      
+      // Fetch document details
+      const response = await fetch(`/document/preview/${docId}`);
+      if (!response.ok) {
+        throw new Error('Failed to load document preview');
+      }
+      
+      const doc = await response.json();
+      
+      // Update modal content
+      document.getElementById('previewTitle').textContent = doc.title;
+      document.getElementById('previewDescription').textContent = doc.description || 'No description available';
+      document.getElementById('previewAuthor').textContent = doc.author;
+      document.getElementById('previewDate').textContent = new Date(doc.created_at).toLocaleDateString();
+      document.getElementById('previewAuthorAvatar').src = doc.author_avatar || '';
+      document.getElementById('downloadBtn').href = `/uploads/${doc.file_path}`;
+      
+      // Handle different file types
+      const filePreview = document.getElementById('filePreview');
+      filePreview.innerHTML = '';
+      
+      if (doc.file_type === 'pdf') {
+        filePreview.innerHTML = `
+          <iframe 
+            src="/uploads/${doc.file_path}#toolbar=0&view=FitH" 
+            width="100%" 
+            height="600" 
+            style="border: none;"
+            allowfullscreen>
+          </iframe>`;
+      } else if (doc.file_type === 'image') {
+        filePreview.innerHTML = `
+          <img 
+            src="/uploads/${doc.file_path}" 
+            alt="${doc.title}" 
+            class="img-fluid d-block mx-auto" 
+            style="max-height: 500px; object-fit: contain;">`;
+      } else {
+        filePreview.innerHTML = `
+          <div class="text-center py-5">
+            <i class="fas fa-file-alt fa-4x text-muted mb-3"></i>
+            <p class="text-muted">Preview not available for this file type</p>
+            <p class="small">File type: ${doc.file_type || 'unknown'}</p>
+          </div>`;
+      }
+      
+      // Show the content
+      previewLoading.style.display = 'none';
+      previewContent.style.display = 'block';
+      
+    } catch (error) {
+      console.error('Error loading document preview:', error);
+      previewLoading.style.display = 'none';
+      previewError.textContent = 'Failed to load document preview. ' + (error.message || 'Please try again later.');
+      previewError.style.display = 'block';
+    }
+  }
+  
   // Bookmark functionality
   document.querySelectorAll('.bookmark-btn').forEach(btn => {
     btn.addEventListener('click', async function(e) {

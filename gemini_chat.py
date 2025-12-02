@@ -1,11 +1,18 @@
 import google.generativeai as genai
 import os
 from datetime import datetime
+from dotenv import load_dotenv
 from document_processor import get_document_context
 from db_utils import get_database_context  # Import from our new db_utils module
 
+# Load environment variables from .env file
+load_dotenv()
+
 # Initialize the Gemini model
-GEMINI_API_KEY = "AIzaSyDqvFjOFoaNV0vut2lILZD7H35nB95K1IU"
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+if not GEMINI_API_KEY:
+    raise ValueError("GEMINI_API_KEY not found in environment variables")
+
 genai.configure(api_key=GEMINI_API_KEY)
 
 # Initialize the model

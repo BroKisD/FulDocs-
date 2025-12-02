@@ -107,12 +107,20 @@
                   <i class="fas fa-calendar me-1"></i>
                   {{ doc['created_at'][:10] if doc['created_at'] else 'N/A' }}
                 </small>
-                {% if doc['file_path'] %}
-                  <a href="{{ url_for('uploaded_file', filename=doc['file_path']) }}" 
-                     class="btn btn-sm btn-outline-primary mt-2">
-                    <i class="fas fa-download me-1"></i>Download
-                  </a>
-                {% endif %}
+                <div class="mt-2">
+                  {% if doc['file_path'] %}
+                    <a href="{{ url_for('uploaded_file', filename=doc['file_path']) }}" 
+                       class="btn btn-sm btn-outline-primary me-2">
+                      <i class="fas fa-download me-1"></i>Download
+                    </a>
+                  {% endif %}
+                  {% if session.get('user_id') == user['id'] %}
+                    <a href="{{ url_for('edit_document', doc_id=doc['id']) }}" 
+                       class="btn btn-sm btn-outline-secondary">
+                      <i class="fas fa-edit me-1"></i>Edit
+                    </a>
+                  {% endif %}
+                </div>
               </div>
             </div>
           {% endfor %}

@@ -15,8 +15,9 @@ import os
 import json
 from datetime import datetime
 from flask import (Flask, render_template, request, redirect,
-                   url_for, session, send_from_directory, flash, jsonify)
+                   url_for, session, send_from_directory, flash, jsonify, abort)
 from werkzeug.utils import secure_filename
+import os
 from db_utils import get_db_connection
 from gemini_chat import get_chat_response
 
@@ -843,15 +844,28 @@ def admin():
         return redirect(url_for('feed'))
     
     conn = get_db_connection()
-    pending_docs = conn.execute(
-        '''SELECT Documents.id, Documents.title, Documents.description,
-                  Documents.tags, Documents.status,
-                  Users.email AS author, Users.name AS author_name
-           FROM Documents
-           JOIN Users ON Documents.user_id = Users.id
-           WHERE Documents.status = 'Pending' ''').fetchall()
+    
+    # Get all documents with author information
+    docs = conn.execute('''
+        SELECT d.id, d.title, d.description, d.status, d.created_at,
+               u.email AS author, u.name AS author_name
+        FROM Documents d
+        JOIN Users u ON d.user_id = u.id
+        ORDER BY d.created_at DESC
+    ''').fetchall()
+    
+    # Get all questions with author information
+    questions = conn.execute('''
+        SELECT q.id, q.title, q.description, q.created_at,
+               u.email AS author, u.name AS author_name
+        FROM Questions q
+        JOIN Users u ON q.user_id = u.id
+        ORDER BY q.created_at DESC
+    ''').fetchall()
+    
     conn.close()
-    return render_template('admin.html', docs=pending_docs)
+    
+    return render_template('admin.html', docs=docs, questions=questions)
 
 
 @app.route('/verify/<int:doc_id>')
@@ -878,6 +892,83 @@ def unverify(doc_id: int):
     conn.close()
     flash('Document marked as unverified.', 'warning')
     return redirect(url_for('admin'))
+
+
+@app.route('/admin/delete_document/<int:doc_id>', methods=['POST'])
+def delete_document(doc_id: int):
+    if 'user_id' not in session or session.get('role') != 'Admin':
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+    
+    try:
+        conn = get_db_connection()
+        
+        # First get the file path to delete the actual file
+        doc = conn.execute('SELECT file_path FROM Documents WHERE id = ?', (doc_id,)).fetchone()
+        if not doc:
+            return jsonify({'success': False, 'error': 'Document not found'}), 404
+            
+        # Delete the document from database
+        conn.execute('DELETE FROM Documents WHERE id = ?', (doc_id,))
+        conn.commit()
+        conn.close()
+        
+        # Delete the actual file if it exists
+        if doc['file_path']:
+            try:
+                file_path = os.path.join(app.config['UPLOAD_FOLDER'], os.path.basename(doc['file_path']))
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+            except Exception as e:
+                app.logger.error(f'Error deleting file {file_path}: {str(e)}')
+        
+        flash('Document deleted successfully!', 'success')
+        return jsonify({'success': True})
+    except Exception as e:
+        if 'conn' in locals():
+            conn.rollback()
+            conn.close()
+        app.logger.error(f'Error deleting document: {str(e)}')
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/admin/delete_question/<int:question_id>', methods=['POST'])
+def delete_question(question_id: int):
+    if 'user_id' not in session or session.get('role') != 'Admin':
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+    
+    try:
+        conn = get_db_connection()
+        
+        # First check if the question exists
+        question = conn.execute('SELECT id, file_path FROM Questions WHERE id = ?', (question_id,)).fetchone()
+        if not question:
+            return jsonify({'success': False, 'error': 'Question not found'}), 404
+            
+        # Delete associated answers first (due to foreign key constraint)
+        conn.execute('DELETE FROM Answers WHERE question_id = ?', (question_id,))
+        
+        # Delete the question
+        conn.execute('DELETE FROM Questions WHERE id = ?', (question_id,))
+        conn.commit()
+        conn.close()
+        
+        # Delete the associated file if it exists
+        if question['file_path']:
+            try:
+                file_path = os.path.join(app.config['UPLOAD_FOLDER'], os.path.basename(question['file_path']))
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+            except Exception as e:
+                app.logger.error(f'Error deleting question file {file_path}: {str(e)}')
+        
+        flash('Question and its answers deleted successfully!', 'success')
+        return jsonify({'success': True})
+    except Exception as e:
+        if 'conn' in locals():
+            conn.rollback()
+            conn.close()
+        app.logger.error(f'Error deleting question: {str(e)}')
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.route('/uploads/<path:filename>')
@@ -907,6 +998,114 @@ def chat_api():
         return jsonify({'response': response})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@app.route('/document/edit/<int:doc_id>', methods=['GET', 'POST'])
+def edit_document(doc_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Get the document
+    cursor.execute('''
+        SELECT * FROM Documents 
+        WHERE id = ? AND user_id = ?
+    ''', (doc_id, session['user_id']))
+    document = cursor.fetchone()
+    
+    if not document:
+        conn.close()
+        abort(404, "Document not found or you don't have permission to edit it")
+    
+    if request.method == 'POST':
+        title = request.form.get('title', '').strip()
+        description = request.form.get('description', '').strip()
+        
+        # Handle file upload if a new file is provided
+        uploaded_file = request.files.get('file')
+        file_path = document['file_path']
+        
+        if uploaded_file and uploaded_file.filename:
+            # Delete old file if it exists
+            old_file_path = os.path.join(app.config['UPLOAD_FOLDER'], document['file_path'])
+            if os.path.exists(old_file_path):
+                os.remove(old_file_path)
+            
+            # Save new file
+            filename = secure_filename(uploaded_file.filename)
+            timestamp = datetime.utcnow().strftime('%Y%m%d%H%M%S')
+            filename = f"{timestamp}_{filename}"
+            save_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            uploaded_file.save(save_path)
+            file_path = filename
+        
+        # Update document in database
+        cursor.execute('''
+            UPDATE Documents 
+            SET title = ?, description = ?, file_path = ?, status = 'Pending'
+            WHERE id = ? AND user_id = ?
+        ''', (title, description, file_path, doc_id, session['user_id']))
+        
+        conn.commit()
+        conn.close()
+        
+        flash('Document updated successfully! It will be reviewed again by moderators.', 'success')
+        return redirect(url_for('profile', user_id=session['user_id']))
+    
+    # Convert row to dict for easier template access
+    document_dict = dict(document)
+    conn.close()
+    
+    return render_template('edit_document.html', document=document_dict)
+
+
+@app.route('/document/preview/<int:doc_id>')
+def document_preview(doc_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Get document details
+    cursor.execute('''
+        SELECT d.*, u.name as author_name, u.avatar_url 
+        FROM Documents d 
+        JOIN Users u ON d.user_id = u.id 
+        WHERE d.id = ?
+    ''', (doc_id,))
+    
+    document = cursor.fetchone()
+    if not document:
+        return jsonify({'error': 'Document not found'}), 404
+    
+    # Check if file exists
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], document['file_path'])
+    if not os.path.exists(file_path):
+        return jsonify({'error': 'File not found'}), 404
+    
+    # Get file extension and type
+    file_extension = os.path.splitext(file_path)[1].lower()
+    file_type = 'other'
+    
+    if file_extension in ['.pdf']:
+        file_type = 'pdf'
+    elif file_extension in ['.jpg', '.jpeg', '.png', '.gif']:
+        file_type = 'image'
+    elif file_extension in ['.doc', '.docx']:
+        file_type = 'document'
+    elif file_extension in ['.xls', '.xlsx']:
+        file_type = 'spreadsheet'
+    
+    return jsonify({
+        'id': document['id'],
+        'title': document['title'],
+        'description': document['description'],
+        'file_path': document['file_path'],
+        'file_type': file_type,
+        'author': document['author_name'],
+        'author_avatar': document['avatar_url'],
+        'created_at': document['created_at'],
+        'status': document['status']
+    })
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 9000))
