@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 & Blynk: IoT Dashboard</title>
+    
+    <!-- Import Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <!-- Import FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <style>
+        /* --- General Page Styles --- */
+        body {
+            font-family: 'Roboto', sans-serif;
+            color: #333333; 
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background-color: #ceedf6; /* Light Blue Background */
+        }
+
+        .container {
+            max-width: 850px;
+            margin: 40px auto;
+            background: white;
+            padding: 40px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            border-radius: 8px;
+        }
+
+        /* --- Header Styling --- */
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 5px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            font-size: 1.2em;
+            margin-top: 0;
+            margin-bottom: 20px;
+        }
+
+        .divider {
+            border: 0;
+            height: 1px;
+            background: #ddd;
+            margin: 20px 0;
+        }
+
+        /* --- Metadata Box --- */
+        .metadata-box {
+            background-color: #f9f9f9;
+            padding: 15px;
+            text-align: center;
+            border-radius: 4px;
+            margin-bottom: 30px;
+            font-size: 0.95em;
+            border: 1px solid #eee;
+        }
+
+        .meta-label {
+            color: #00196e; /* Deep Navy Blue */
+            font-weight: bold;
+        }
+
+        /* --- Section Headers --- */
+        h2 {
+            color: #00196e; /* Deep Navy Blue */
+            font-size: 1.8em;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 10px;
+        }
+
+        h3 {
+            color: #333;
+            margin-top: 25px;
+            border-left: 4px solid #00196e;
+            padding-left: 10px;
+        }
+
+        /* --- Lists --- */
+        ul, ol {
+            margin-bottom: 20px;
+        }
+        li {
+            margin-bottom: 10px;
+        }
+
+        /* --- Tables --- */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 0.95em;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #00196e;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+
+        /* --- Info/Warning Box --- */
+        .info-box {
+            background-color: #fff3cd;
+            border: 1px solid #ffeeba;
+            border-left: 5px solid #ffa000;
+            color: #856404;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+            display: flex;
+            align-items: flex-start;
+            gap: 15px;
+        }
+
+        .info-box i {
+            font-size: 1.4em;
+            margin-top: 3px;
+        }
+
+        /* --- Code Block Styling --- */
+        .code-container {
+            background-color: #F7F7F7;
+            border: 1px solid #e1e1e1;
+            border-radius: 5px;
+            margin: 20px 0;
+            overflow: hidden;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        .code-header {
+            background-color: #eee;
+            padding: 8px 15px;
+            font-weight: bold;
+            font-size: 0.9em;
+            border-bottom: 1px solid #ddd;
+            color: #555;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .code-content {
+            padding: 15px;
+            overflow-x: auto;
+            white-space: pre;
+            font-size: 0.9em;
+            line-height: 1.5;
+        }
+
+        /* Syntax Highlighting Colors */
+        .kw-teal { color: #00979C; font-weight: bold; }   
+        .kw-orange { color: #D35400; font-weight: bold; } 
+        .kw-blue { color: #005C5F; }                      
+        .comment { color: #888888; font-style: italic; }  
+        .string { color: #005C5F; }
+        .linenum { color: #ccc; margin-right: 15px; user-select: none; }
+        .preproc { color: #5e6d03; }
+
+        /* --- Links --- */
+        a {
+            color: #00196e; 
+            text-decoration: none;
+            font-weight: bold;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+
+        /* --- Responsive --- */
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+                margin: 0;
+                border-radius: 0;
+            }
+            h1 { font-size: 2em; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- Title Section -->
+        <h1>ESP32 & Blynk: IoT Dashboard</h1>
+        <p class="subtitle">Control LED & Monitor Temp/Humidity from your Phone</p>
+
+        <!-- Metadata Section -->
+        <div class="metadata-box">
+            <span class="meta-label">Category:</span> IoT, Embedded - Signal - System, Web &nbsp;|&nbsp; 
+            <span class="meta-label">Level:</span> 100 - Introductory
+        </div>
+
+        <hr class="divider">
+
+        <p><strong>Want to create a beautiful mobile app for your hardware?</strong> Blynk is the most popular IoT platform for makers. In this guide, we will connect an ESP32 to the Blynk Cloud. We will toggle the built-in LED from the app and send DHT11 sensor data back to the phone.</p>
+
+        <!-- Prerequisites -->
+        <h2>Prerequisites</h2>
+        <p>You will need the following hardware and software:</p>
+        <ul>
+            <li><i class="fas fa-check-circle" style="color:#00196e"></i> <strong>ESP32 Development Board</strong></li>
+            <li><i class="fas fa-check-circle" style="color:#00196e"></i> <strong>DHT11 Sensor</strong> (Temperature & Humidity)</li>
+            <li><i class="fas fa-check-circle" style="color:#00196e"></i> <strong>Jumper Wires & Breadboard</strong></li>
+            <li><i class="fas fa-check-circle" style="color:#00196e"></i> <strong>Blynk App</strong> (iOS or Android) & Account</li>
+        </ul>
+
+        <!-- Setup Part 1 -->
+        <h2>Part 1: Setting up Blynk Console</h2>
+        <p>Blynk requires you to create a "Template" first. Follow these steps on your computer:</p>
+        <ol>
+            <li>Log in to <a href="https://blynk.cloud" target="_blank">Blynk.cloud</a>.</li>
+            <li>Create a <strong>New Template</strong> named "ESP32 Weather". Select <strong>ESP32</strong> as the hardware and <strong>Wi-Fi</strong> as the connection.</li>
+            <li>Go to the <strong>Datastreams</strong> tab and create two datastreams:
+                <ul>
+                    <li><strong>Virtual Pin V0:</strong> Name "LED Control", Data Type: Integer (0-1).</li>
+                    <li><strong>Virtual Pin V1:</strong> Name "Temperature", Data Type: Double, Units: &deg;C.</li>
+                    <li><strong>Virtual Pin V2:</strong> Name "Humidity", Data Type: Double, Units: %.</li>
+                </ul>
+            </li>
+            <li>Save the Template.</li>
+            <li>Go to the <strong>Search</strong> icon (Devices) -> <strong>New Device</strong> -> <strong>From Template</strong> -> Select "ESP32 Weather".</li>
+            <li><strong>Copy the Firmware Configuration</strong> (Template ID, Device Name, Auth Token). You will need this for the code.</li>
+        </ol>
+
+        <!-- Wiring Section -->
+        <h2>Part 2: Wiring the DHT11</h2>
+        <p>Connect the DHT11 sensor to the ESP32 as follows:</p>
+
+        <table>
+            <tr>
+                <th>DHT11 Pin</th>
+                <th>ESP32 Pin</th>
+                <th>Function</th>
+            </tr>
+            <tr><td>VCC (+)</td><td>3.3V or 5V</td><td>Power</td></tr>
+            <tr><td>DATA (Out)</td><td>GPIO 4</td><td>Signal</td></tr>
+            <tr><td>GND (-)</td><td>GND</td><td>Ground</td></tr>
+        </table>
+
+        <!-- Libraries -->
+        <h2>Part 3: Installing Libraries</h2>
+        <p>In the Arduino IDE, go to <strong>Tools &rarr; Manage Libraries</strong> and install:</p>
+        <ol>
+            <li><strong>Blynk</strong> by Volodymyr Shymanskyy.</li>
+            <li><strong>DHT sensor library</strong> by Adafruit.</li>
+            <li><strong>Adafruit Unified Sensor</strong> by Adafruit.</li>
+        </ol>
+
+        <!-- The Code -->
+        <h2>Part 4: The Code</h2>
+        <p>Copy the code below. <strong>Important:</strong> You must replace the top 3 lines with the credentials you copied from the Blynk Console in Part 1.</p>
+
+        <div class="code-container">
+            <div class="code-header"><span>Blynk ESP32 Example</span> <span>C++</span></div>
+            <div class="code-content">
+<span class="linenum">1</span><span class="comment">// 1. PASTE BLYNK CONFIGURATION HERE (From Blynk Console)</span>
+<span class="linenum">2</span><span class="preproc">#define</span> BLYNK_TEMPLATE_ID <span class="string">"TMPLxxxxxx"</span>
+<span class="linenum">3</span><span class="preproc">#define</span> BLYNK_TEMPLATE_NAME <span class="string">"ESP32 Weather"</span>
+<span class="linenum">4</span><span class="preproc">#define</span> BLYNK_AUTH_TOKEN <span class="string">"Your_Auth_Token_Here"</span>
+<span class="linenum">5</span>
+<span class="linenum">6</span><span class="comment">// 2. Include Libraries</span>
+<span class="linenum">7</span><span class="preproc">#define</span> BLYNK_PRINT Serial
+<span class="linenum">8</span><span class="kw-teal">#include</span> &lt;WiFi.h&gt;
+<span class="linenum">9</span><span class="kw-teal">#include</span> &lt;WiFiClient.h&gt;
+<span class="linenum">10</span><span class="kw-teal">#include</span> &lt;BlynkSimpleEsp32.h&gt;
+<span class="linenum">11</span><span class="kw-teal">#include</span> &lt;DHT.h&gt;
+<span class="linenum">12</span>
+<span class="linenum">13</span><span class="comment">// 3. Wi-Fi Credentials</span>
+<span class="linenum">14</span><span class="kw-teal">char</span> ssid[] = <span class="string">"YOUR_WIFI_NAME"</span>;
+<span class="linenum">15</span><span class="kw-teal">char</span> pass[] = <span class="string">"YOUR_WIFI_PASSWORD"</span>;
+<span class="linenum">16</span>
+<span class="linenum">17</span><span class="comment">// 4. Sensors & Pins Configuration</span>
+<span class="linenum">18</span><span class="preproc">#define</span> DHTPIN 4          <span class="comment">// Pin connected to DHT11 Data</span>
+<span class="linenum">19</span><span class="preproc">#define</span> DHTTYPE DHT11     <span class="comment">// Sensor Type</span>
+<span class="linenum">20</span><span class="preproc">#define</span> LED_PIN 2         <span class="comment">// Built-in LED (GPIO 2 on most boards)</span>
+<span class="linenum">21</span>
+<span class="linenum">22</span>DHT dht(DHTPIN, DHTTYPE);
+<span class="linenum">23</span>BlynkTimer timer;
+<span class="linenum">24</span>
+<span class="linenum">25</span><span class="comment">// --- Function to read Sensor & Send to Blynk ---</span>
+<span class="linenum">26</span><span class="kw-teal">void</span> sendSensor() {
+<span class="linenum">27</span>  <span class="kw-teal">float</span> h = dht.<span class="kw-orange">readHumidity</span>();
+<span class="linenum">28</span>  <span class="kw-teal">float</span> t = dht.<span class="kw-orange">readTemperature</span>(); <span class="comment">// or readTemperature(true) for Fahrenheit</span>
+<span class="linenum">29</span>
+<span class="linenum">30</span>  <span class="kw-teal">if</span> (isnan(h) || isnan(t)) {
+<span class="linenum">31</span>    Serial.<span class="kw-orange">println</span>(<span class="string">"Failed to read from DHT sensor!"</span>);
+<span class="linenum">32</span>    <span class="kw-teal">return</span>;
+<span class="linenum">33</span>  }
+<span class="linenum">34</span>
+<span class="linenum">35</span>  <span class="comment">// Send data to Virtual Pins (V1 = Temp, V2 = Humidity)</span>
+<span class="linenum">36</span>  Blynk.<span class="kw-orange">virtualWrite</span>(V1, t);
+<span class="linenum">37</span>  Blynk.<span class="kw-orange">virtualWrite</span>(V2, h);
+<span class="linenum">38</span>}
+<span class="linenum">39</span>
+<span class="linenum">40</span><span class="comment">// --- Function to Control LED from App (V0) ---</span>
+<span class="linenum">41</span><span class="preproc">BLYNK_WRITE</span>(V0) {
+<span class="linenum">42</span>  <span class="kw-teal">int</span> pinValue = param.<span class="kw-orange">asInt</span>(); <span class="comment">// Get value from app (0 or 1)</span>
+<span class="linenum">43</span>  <span class="kw-orange">digitalWrite</span>(LED_PIN, pinValue);
+<span class="linenum">44</span>}
+<span class="linenum">45</span>
+<span class="linenum">46</span><span class="kw-teal">void</span> <span class="kw-orange">setup</span>() {
+<span class="linenum">47</span>  Serial.<span class="kw-orange">begin</span>(115200);
+<span class="linenum">48</span>  <span class="kw-orange">pinMode</span>(LED_PIN, <span class="kw-blue">OUTPUT</span>);
+<span class="linenum">49</span>
+<span class="linenum">50</span>  dht.<span class="kw-orange">begin</span>();
+<span class="linenum">51</span>  Blynk.<span class="kw-orange">begin</span>(BLYNK_AUTH_TOKEN, ssid, pass);
+<span class="linenum">52</span>
+<span class="linenum">53</span>  <span class="comment">// Setup a timer to send data every 2 seconds (2000L)</span>
+<span class="linenum">54</span>  timer.<span class="kw-orange">setInterval</span>(2000L, sendSensor);
+<span class="linenum">55</span>}
+<span class="linenum">56</span>
+<span class="linenum">57</span><span class="kw-teal">void</span> <span class="kw-orange">loop</span>() {
+<span class="linenum">58</span>  Blynk.<span class="kw-orange">run</span>();
+<span class="linenum">59</span>  timer.<span class="kw-orange">run</span>();
+<span class="linenum">59</span>  <span class="kw-orange">delay</span>(500);
+<span class="linenum">60</span>}</div>
+        </div>
+
+        <div class="info-box">
+            <i class="fas fa-info-circle"></i>
+            <div>
+                <strong>Input your wifi credentials and Blynk credentials</strong>
+            </div>
+        </div>
+        <div class="info-box">
+            <i class="fas fa-info-circle"></i>
+            <div>
+                <strong>Why need delay(500) in the loop?</strong> Blynk limit the number of message that free user can send in a month. The <span class="kw-orange">delay</span>(500); keep the code not over-stream blynk message.
+            </div>
+        </div>
+
+        <h2>Part 5: Creating the Mobile Dashboard</h2>
+        <p>Once the code is uploaded and the Serial Monitor says "Ready", open the Blynk App on your phone.</p>
+        <ol>
+            <li>Open the app and find your device ("ESP32 Weather").</li>
+            <li>Tap the <strong>Wrench icon</strong> (Developer Mode) to add widgets.</li>
+            <li>Add a <strong>Button</strong>.
+                <ul><li>Tap it settings, select Datastream: <strong>LED Control (V0)</strong>. Mode: <strong>Switch</strong>.</li></ul>
+            </li>
+            <li>Add two <strong>Gauges</strong> (or Labeled Values).
+                <ul>
+                    <li>Gauge 1: Select Datastream <strong>Temperature (V1)</strong>.</li>
+                    <li>Gauge 2: Select Datastream <strong>Humidity (V2)</strong>.</li>
+                </ul>
+            </li>
+            <li>Exit Developer Mode (Play button).</li>
+        </ol>
+
+        <h2>Wrapping Up</h2>
+        <p><strong>Success!</strong> Press the button on your phone, and the physical LED on the ESP32 should turn on. Breathe on the sensor, and watch the humidity gauge rise on your phone screen instantly.</p>
+
+    </div>
+
+</body>
+</html>

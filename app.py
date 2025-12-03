@@ -13,6 +13,7 @@ New features added:
 
 import os
 import json
+import sqlite3
 from datetime import datetime
 from flask import (Flask, render_template, request, redirect,
                    url_for, session, send_from_directory, flash, jsonify, abort)
@@ -66,6 +67,10 @@ def init_db():
             cursor.execute('ALTER TABLE Users ADD COLUMN avatar_url TEXT')
         if 'created_at' not in existing_cols:
             cursor.execute('ALTER TABLE Users ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
+        if 'first_login' not in existing_cols:
+            cursor.execute('ALTER TABLE Users ADD COLUMN first_login INTEGER DEFAULT 1')
+            # Set first_login to 0 for existing users
+            cursor.execute('UPDATE Users SET first_login = 0 WHERE first_login IS NULL')
             
         # Create Documents table
         cursor.execute('''
@@ -139,11 +144,26 @@ def init_db():
             )
         ''')
         
+        # Create Stars table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS Stars (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                item_type TEXT NOT NULL,
+                item_id INTEGER NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES Users(id),
+                UNIQUE(user_id, item_type, item_id)
+            )
+        ''')
+        
         # Create indexes after all tables are created
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_documents_user ON Documents(user_id)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_questions_user ON Questions(user_id)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_answers_question ON Answers(question_id)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_answers_user ON Answers(user_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_stars_user ON Stars(user_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_stars_item ON Stars(item_type, item_id)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_votes_user ON Votes(user_id)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_votes_answer ON Votes(answer_id)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_bookmarks_user ON Bookmarks(user_id)')
@@ -274,17 +294,28 @@ def init_db():
         existing_docs = cursor.execute('SELECT COUNT(*) AS count FROM Documents').fetchone()['count']
         if existing_docs == 0:
             sample_docs = [
-                ('Introduction to Flask', 'A comprehensive guide to building web applications with Flask',
-                 'flask, python, web', 'Flask is a lightweight WSGI web application framework...', 'Verified', 2, 'sample_flask_guide.pdf'),
-                ('Database Design Principles', 'Learn the fundamentals of database design',
-                 'database, sql, design', 'Database design is crucial for building scalable applications...', 'Verified', 2, 'database_design.pdf'),
-                ('My Research Project', 'Final year research on machine learning',
-                 'ml, research, project', 'This project explores the application of machine learning...', 'Pending', 3, 'ml_research.pdf'),
+                ('3D Printing Tutorial', 'Comprehensive guide to 3D printing for beginners and enthusiasts',
+                 '3d printing, maker, diy, tutorial', 'Learn the fundamentals of 3D printing, from choosing the right printer to troubleshooting common issues. This guide covers everything you need to know to get started with 3D printing.', 'Verified', 2, '100_3DPrintTutorial.html'),
+                
+                ('Arduino Basic Tutorial', 'Complete beginner\'s guide to Arduino programming and projects',
+                 'arduino, electronics, iot, programming', 'Master the basics of Arduino with this hands-on tutorial. Learn about digital/analog I/O, sensors, and build your first projects with step-by-step instructions.', 'Verified', 2, '100_ArduinoBasicTutorial.html'),
+                
+                ('Blynk Basic Tutorial', 'Getting started with Blynk for IoT projects',
+                 'blynk, iot, mobile app, arduino, esp8266', 'Learn how to use Blynk to create mobile apps for your IoT projects. This tutorial covers setting up Blynk with various microcontrollers and creating custom dashboards.', 'Verified', 2, '100_BlynkBasicTutorial.html'),
+                
+                ('ESP32 WiFi Tutorial', 'Complete guide to WiFi connectivity with ESP32',
+                 'esp32, wifi, iot, arduino, networking', 'Master WiFi connectivity with ESP32 microcontrollers. This tutorial covers station mode, access point mode, and creating web servers with the ESP32.', 'Verified', 2, '100_ESP32WifiTutorial.html'),
+                
+                ('LoRA Simple Tutorial', 'Introduction to LoRa communication for IoT',
+                 'lora, iot, wireless, arduino, communication', 'Learn how to implement long-range wireless communication using LoRa modules. This tutorial covers hardware setup, library usage, and practical examples.', 'Verified', 2, '100_LoRASimpleTutorial.html'),
+                
+                ('RS485 MUX Tutorial', 'Guide to using RS485 with multiplexers',
+                 'rs485, mux, communication, industrial, arduino', 'Comprehensive guide to implementing RS485 communication with multiplexers for industrial and automation applications. Covers wiring, addressing, and protocol implementation.', 'Verified', 2, '200_RS485MUXTutorial.html')
             ]
             for title, description, tags, content, status, user_id, file_path in sample_docs:
                 cursor.execute(
-                    '''INSERT INTO Documents (title, description, tags, content, status, user_id, file_path)
-                       VALUES (?, ?, ?, ?, ?, ?, ?)''',
+                    '''INSERT INTO Documents (title, description, tags, content, status, user_id, file_path, verification_requested, verified_by)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, 1, 2)''',
                     (title, description, tags, content, status, user_id, file_path))
 
         # Seed sample questions
@@ -334,17 +365,38 @@ def login():
         else:
             conn = get_db_connection()
             user = conn.execute('SELECT * FROM Users WHERE email = ?', (email,)).fetchone()
-            conn.close()
+            
             if user:
+                # Check if this is the user's first login
+                first_login = user['first_login'] if 'first_login' in user.keys() else 1
+                
+                # Update first_login status if it's their first login
+                if first_login == 1:
+                    conn.execute('UPDATE Users SET first_login = 0 WHERE id = ?', (user['id'],))
+                    conn.commit()
+                
                 session['user_id'] = user['id']
                 session['role'] = user['role']
                 session['email'] = user['email']
                 session['name'] = user['name'] or email.split('@')[0]
-                flash('Welcome back!', 'success')
-                return redirect(url_for('feed'))
+                
+                if first_login == 1:
+                    flash('Welcome to FulDocs! Let\'s get you started!', 'success')
+                    return redirect(url_for('welcome_guide'))
+                else:
+                    flash('Welcome back!', 'success')
+                    return redirect(url_for('feed'))
             else:
                 error = 'No account found for this email.'
+            conn.close()
     return render_template('login.html', error=error)
+
+
+@app.route('/welcome')
+def welcome_guide():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    return render_template('welcome_guide.html')
 
 
 @app.route('/logout')
@@ -367,27 +419,64 @@ def profile(user_id: int):
         flash('User not found.', 'error')
         return redirect(url_for('feed'))
     
-    # Get user's documents
-    docs = conn.execute(
-        '''SELECT * FROM Documents WHERE user_id = ? ORDER BY created_at DESC LIMIT 10''',
-        (user_id,)).fetchall()
+    # Get user's documents with star counts
+    docs = conn.execute('''
+        SELECT d.*, 
+               (SELECT COUNT(*) FROM Stars WHERE item_type = 'document' AND item_id = d.id) as star_count
+        FROM Documents d 
+        WHERE d.user_id = ? 
+        ORDER BY d.created_at DESC 
+        LIMIT 10
+    ''', (user_id,)).fetchall()
     
     # Get user's questions
-    questions = conn.execute(
-        '''SELECT * FROM Questions WHERE user_id = ? ORDER BY created_at DESC LIMIT 10''',
-        (user_id,)).fetchall()
+    questions = conn.execute('''
+        SELECT q.*, 
+               (SELECT COUNT(*) FROM Answers a WHERE a.question_id = q.id) as answer_count
+        FROM Questions q 
+        WHERE q.user_id = ? 
+        ORDER BY q.created_at DESC 
+        LIMIT 10
+    ''', (user_id,)).fetchall()
+    
+    # Get user's answers with star counts
+    answers = conn.execute('''
+        SELECT a.*, 
+               (SELECT COUNT(*) FROM Stars WHERE item_type = 'answer' AND item_id = a.id) as star_count
+        FROM Answers a 
+        WHERE a.user_id = ? 
+        ORDER BY a.created_at DESC 
+        LIMIT 10
+    ''', (user_id,)).fetchall()
     
     # Get user's answers count
     answers_count = conn.execute(
         'SELECT COUNT(*) as count FROM Answers WHERE user_id = ?',
         (user_id,)).fetchone()['count']
     
+    # Calculate total stars received by user
+    total_stars = conn.execute('''
+        SELECT COUNT(*) as count 
+        FROM Stars 
+        WHERE item_id IN (
+            SELECT id FROM Documents WHERE user_id = ?
+            UNION ALL
+            SELECT id FROM Answers WHERE user_id = ?
+        )
+    ''', (user_id, user_id)).fetchone()['count']
+    
     conn.close()
+    
+    # Convert SQLite Row objects to dictionaries
+    docs = [dict(doc) for doc in docs]
+    questions = [dict(q) for q in questions]
+    answers = [dict(a) for a in answers]
     
     stats = {
         'documents': len(docs),
         'questions': len(questions),
-        'answers': answers_count
+        'answers': answers_count,
+        'total_stars': total_stars
     }
     
     return render_template('profile.html', user=user, stats=stats, docs=docs, questions=questions)
@@ -425,7 +514,7 @@ def feed():
     
     conn = get_db_connection()
     
-    # Fetch verified documents and all questions with verification info
+    # Fetch verified documents and all questions with verification info and star counts
     docs = conn.execute(
         '''SELECT Documents.id AS id, Documents.title AS title,
                   Documents.description AS description,
@@ -440,6 +529,7 @@ def feed():
                   Documents.file_path AS file_path,
                   Documents.created_at AS created_at,
                   'Document' AS type,
+                  (SELECT COUNT(*) FROM Stars WHERE item_type = 'document' AND item_id = Documents.id) AS star_count,
                   prof.id AS verified_by_id,
                   prof.name AS verified_by_name
            FROM Documents
@@ -460,20 +550,28 @@ def feed():
                   Questions.file_path AS file_path,
                   Questions.created_at AS created_at,
                   'Question' AS type,
-                  (SELECT COUNT(*) FROM Answers WHERE question_id = Questions.id) AS answer_count
+                  0 AS star_count,  -- Questions themselves aren't starred, only answers
+                  (SELECT COUNT(*) FROM Answers a WHERE a.question_id = Questions.id) AS answer_count
            FROM Questions
            JOIN Users ON Questions.user_id = Users.id
            ORDER BY Questions.created_at DESC''').fetchall()
     
     conn.close()
     
-    # Combine and sort items by creation date, handling None values
-    items = list(docs) + list(questions)
-    items_sorted = sorted(
-        items, 
-        key=lambda r: r['created_at'] if r['created_at'] is not None else '', 
-        reverse=True
-    )
+    # Convert SQLite Row objects to dictionaries and combine
+    items = []
+    for doc in docs:
+        doc_dict = dict(doc)
+        doc_dict['user_id'] = doc_dict['author_id']  # Add user_id for consistency
+        items.append(doc_dict)
+    
+    for question in questions:
+        q_dict = dict(question)
+        q_dict['user_id'] = q_dict['author_id']  # Add user_id for consistency
+        items.append(q_dict)
+    
+    # Sort items by creation date
+    items_sorted = sorted(items, key=lambda x: x['created_at'], reverse=True)
     
     return render_template('feed.html', items=items_sorted)
 
@@ -604,8 +702,60 @@ def post_document():
     conn.close()
     
     return render_template('post.html', professors=professors)
+
+
+@app.route('/documents/<int:doc_id>')
+def view_document(doc_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
     
-    return render_template('post.html')
+    conn = get_db_connection()
+    
+    # Get document with author info
+    document_row = conn.execute('''
+        SELECT d.*, u.email as author, u.name as author_name, u.id as author_id
+        FROM Documents d
+        JOIN Users u ON d.user_id = u.id
+        WHERE d.id = ?
+    ''', (doc_id,)).fetchone()
+    
+    if not document_row:
+        conn.close()
+        flash('Document not found.', 'error')
+        return redirect(url_for('feed'))
+    
+    # Convert SQLite Row to dict
+    document = dict(document_row)
+    
+    # Get star information
+    is_starred = False
+    star_count = 0
+    
+    if 'user_id' in session:
+        # Check if current user has starred this document
+        star = conn.execute(
+            'SELECT id FROM Stars WHERE user_id = ? AND item_type = ? AND item_id = ?',
+            (session['user_id'], 'document', doc_id)
+        ).fetchone()
+        is_starred = star is not None
+        
+        # Get total star count for this document
+        star_count_result = conn.execute(
+            'SELECT COUNT(*) as count FROM Stars WHERE item_type = ? AND item_id = ?',
+            ('document', doc_id)
+        ).fetchone()
+        star_count = star_count_result['count'] if star_count_result else 0
+    
+    # Increment view count
+    conn.execute('UPDATE Documents SET views = COALESCE(views, 0) + 1 WHERE id = ?', (doc_id,))
+    conn.commit()
+    
+    conn.close()
+    
+    return render_template('document_detail.html', 
+                         document=document,
+                         is_starred=is_starred,
+                         star_count=star_count)
 
 
 @app.route('/ask', methods=['GET', 'POST'])
@@ -685,85 +835,58 @@ def question_detail(question_id: int):
             
             flash('Answer posted successfully!', 'success')
     
+    # Get all answers with author info
     answers = conn.execute(
         '''SELECT Answers.*, Users.email AS author, Users.name AS author_name, Users.id AS author_id
            FROM Answers
            JOIN Users ON Answers.user_id = Users.id
            WHERE Answers.question_id = ?
-           ORDER BY Answers.is_accepted DESC, Answers.upvotes - Answers.downvotes DESC, Answers.created_at ASC''',
+           ORDER BY Answers.is_accepted DESC, Answers.created_at ASC''',
         (question_id,)).fetchall()
     
-    # Get user's votes
-    user_votes = {}
-    if answers:
-        answer_ids = [a['id'] for a in answers]
-        votes = conn.execute(
-            f'''SELECT answer_id, vote_type FROM Votes 
-                WHERE user_id = ? AND answer_id IN ({','.join('?' * len(answer_ids))})''',
-            [session['user_id']] + answer_ids).fetchall()
-        user_votes = {v['answer_id']: v['vote_type'] for v in votes}
+    # Convert SQLite Row objects to dictionaries for easier manipulation
+    answers_list = []
+    for answer in answers:
+        answer_dict = dict(answer)
+        answers_list.append(answer_dict)
+    
+    # Get star information for each answer if user is logged in
+    if 'user_id' in session and answers_list:
+        # Get user's starred answers
+        answer_ids = [a['id'] for a in answers_list]
+        user_stars = conn.execute(
+            'SELECT item_id FROM Stars WHERE user_id = ? AND item_type = ? AND item_id IN ({})'.format(
+                ','.join(['?'] * len(answer_ids))
+            ),
+            [session['user_id'], 'answer'] + answer_ids
+        ).fetchall()
+        user_starred = {s['item_id'] for s in user_stars}
+        
+        # Get star counts for each answer
+        if answer_ids:
+            star_counts = conn.execute(
+                'SELECT item_id, COUNT(*) as count FROM Stars WHERE item_type = ? AND item_id IN ({}) GROUP BY item_id'.format(
+                    ','.join(['?'] * len(answer_ids))
+                ),
+                ['answer'] + answer_ids
+            ).fetchall()
+            star_count_map = {s['item_id']: s['count'] for s in star_counts}
+        else:
+            star_count_map = {}
+        
+        # Add star info to answers
+        for answer in answers_list:
+            answer['is_starred'] = answer['id'] in user_starred
+            answer['star_count'] = star_count_map.get(answer['id'], 0)
+    
+    answers = answers_list
     
     conn.close()
     
-    return render_template('question_detail.html', question=question, 
-                         answers=answers, user_votes=user_votes)
+    return render_template('question_detail.html', question=question, answers=answers)
 
 
-@app.route('/answer/<int:answer_id>/vote', methods=['POST'])
-def vote_answer(answer_id: int):
-    if 'user_id' not in session:
-        return jsonify({'error': 'Not logged in'}), 401
-    
-    vote_type = request.json.get('vote_type')
-    if vote_type not in ['up', 'down']:
-        return jsonify({'error': 'Invalid vote type'}), 400
-    
-    conn = get_db_connection()
-    
-    # Check existing vote
-    existing_vote = conn.execute(
-        'SELECT * FROM Votes WHERE user_id = ? AND answer_id = ?',
-        (session['user_id'], answer_id)).fetchone()
-    
-    if existing_vote:
-        if existing_vote['vote_type'] == vote_type:
-            # Remove vote
-            conn.execute('DELETE FROM Votes WHERE user_id = ? AND answer_id = ?',
-                        (session['user_id'], answer_id))
-            if vote_type == 'up':
-                conn.execute('UPDATE Answers SET upvotes = upvotes - 1 WHERE id = ?', (answer_id,))
-            else:
-                conn.execute('UPDATE Answers SET downvotes = downvotes - 1 WHERE id = ?', (answer_id,))
-        else:
-            # Change vote
-            conn.execute('UPDATE Votes SET vote_type = ? WHERE user_id = ? AND answer_id = ?',
-                        (vote_type, session['user_id'], answer_id))
-            if vote_type == 'up':
-                conn.execute('UPDATE Answers SET upvotes = upvotes + 1, downvotes = downvotes - 1 WHERE id = ?',
-                           (answer_id,))
-            else:
-                conn.execute('UPDATE Answers SET downvotes = downvotes + 1, upvotes = upvotes - 1 WHERE id = ?',
-                           (answer_id,))
-    else:
-        # New vote
-        conn.execute('INSERT INTO Votes (user_id, answer_id, vote_type) VALUES (?, ?, ?)',
-                    (session['user_id'], answer_id, vote_type))
-        if vote_type == 'up':
-            conn.execute('UPDATE Answers SET upvotes = upvotes + 1 WHERE id = ?', (answer_id,))
-        else:
-            conn.execute('UPDATE Answers SET downvotes = downvotes + 1 WHERE id = ?', (answer_id,))
-    
-    conn.commit()
-    
-    # Get updated counts
-    answer = conn.execute('SELECT upvotes, downvotes FROM Answers WHERE id = ?', (answer_id,)).fetchone()
-    conn.close()
-    
-    return jsonify({
-        'upvotes': answer['upvotes'],
-        'downvotes': answer['downvotes'],
-        'score': answer['upvotes'] - answer['downvotes']
-    })
+
 
 
 @app.route('/answer/<int:answer_id>/accept', methods=['POST'])
@@ -800,7 +923,6 @@ def accept_answer(answer_id: int):
     return jsonify({'success': True, 'is_accepted': new_status})
 
 
-@app.route('/bookmark/<item_type>/<int:item_id>', methods=['POST'])
 @app.route('/bookmark/<item_type>/<int:item_id>', methods=['POST'])
 def toggle_bookmark(item_type: str, item_id: int):
     if 'user_id' not in session:
@@ -848,6 +970,91 @@ def toggle_bookmark(item_type: str, item_id: int):
         app.logger.error(f'Error toggling bookmark: {str(e)}')
         return jsonify({'error': 'An error occurred while updating bookmarks'}), 500
     finally:
+        conn.close()
+
+
+@app.route('/api/star/<string:item_type>/<int:item_id>', methods=['POST'])
+def toggle_star(item_type, item_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not logged in'}), 401
+        
+    if item_type not in ['answer', 'document']:
+        return jsonify({'error': 'Invalid item type'}), 400
+        
+    conn = None
+    try:
+        conn = get_db_connection()
+        user_id = session['user_id']
+        
+        # Check if the item exists
+        if item_type == 'answer':
+            item = conn.execute('SELECT id FROM Answers WHERE id = ?', (item_id,)).fetchone()
+        else:  # document
+            item = conn.execute('SELECT id FROM Documents WHERE id = ?', (item_id,)).fetchone()
+                
+        if not item:
+            if conn:
+                conn.close()
+            return jsonify({'error': 'Item not found'}), 404
+            
+        # First, check if the star already exists
+        star = conn.execute(
+            'SELECT id FROM Stars WHERE user_id = ? AND item_type = ? AND item_id = ?',
+            (user_id, item_type, item_id)
+        ).fetchone()
+            
+        if star:
+            # Star exists, so we'll remove it
+            conn.execute(
+                'DELETE FROM Stars WHERE id = ?',
+                (star['id'],)
+            )
+            starred = False
+            app.logger.info(f'Star removed: user_id={user_id}, item_type={item_type}, item_id={item_id}')
+        else:
+            # Star doesn't exist, so we'll add it
+            try:
+                conn.execute(
+                    'INSERT INTO Stars (user_id, item_type, item_id) VALUES (?, ?, ?)',
+                    (user_id, item_type, item_id)
+                )
+                starred = True
+                app.logger.info(f'Star added: user_id={user_id}, item_type={item_type}, item_id={item_id}')
+            except sqlite3.IntegrityError as e:
+                app.logger.error(f'Integrity error when adding star: {str(e)}')
+                conn.rollback()
+                # If we get here, it means the star exists but our initial check didn't find it
+                # This could be due to a race condition, so we'll treat it as a successful toggle
+                starred = True
+            
+        # Get updated star count and check if the current user has starred the item
+        star_count = conn.execute(
+            'SELECT COUNT(*) as count FROM Stars WHERE item_type = ? AND item_id = ?',
+            (item_type, item_id)
+        ).fetchone()['count']
+            
+        # Check if current user has starred the item
+        user_has_starred = conn.execute(
+            'SELECT 1 FROM Stars WHERE user_id = ? AND item_type = ? AND item_id = ?',
+            (user_id, item_type, item_id)
+        ).fetchone() is not None
+            
+        conn.commit()
+        return jsonify({
+            'status': 'success',
+            'starred': user_has_starred,
+            'star_count': star_count,
+            'message': 'Successfully ' + ('starred' if user_has_starred else 'unstarred') + ' item'
+        })
+            
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        app.logger.error(f'Error toggling star: {str(e)}')
+        return jsonify({'error': 'Failed to update star', 'details': str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
         conn.close()
 
 
@@ -1141,8 +1348,13 @@ def document_preview(doc_id):
         file_type = 'document'
     elif file_extension in ['.xls', '.xlsx']:
         file_type = 'spreadsheet'
+    elif file_extension in ['.html', '.htm']:
+        file_type = 'html'
+        # Read the HTML content
+        with open(file_path, 'r', encoding='utf-8') as f:
+            html_content = f.read()
     
-    return jsonify({
+    response_data = {
         'id': document['id'],
         'title': document['title'],
         'description': document['description'],
@@ -1152,7 +1364,29 @@ def document_preview(doc_id):
         'author_avatar': document['avatar_url'],
         'created_at': document['created_at'],
         'status': document['status']
-    })
+    }
+    
+    # Include HTML content in response if it's an HTML file
+    if file_type == 'html' and 'html_content' in locals():
+        response_data['html_content'] = html_content
+    
+    return jsonify(response_data)
+
+@app.route('/document/html/<path:filename>')
+def serve_html(filename):
+    """Serve HTML files with proper content type"""
+    # Only allow serving files from the uploads directory
+    uploads_dir = os.path.join(app.root_path, 'uploads')
+    file_path = os.path.join(uploads_dir, filename)
+    
+    # Security check to prevent directory traversal
+    if not os.path.abspath(file_path).startswith(os.path.abspath(uploads_dir)):
+        abort(403, 'Access denied')
+    
+    if not os.path.exists(file_path):
+        abort(404, 'File not found')
+    
+    return send_from_directory(uploads_dir, filename)
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 9000))

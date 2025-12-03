@@ -59,12 +59,19 @@
             <h5 class="mb-0">{{ stats['questions'] }}</h5>
             <small class="text-muted">Questions</small>
           </div>
-          <div class="col-4">
+          <div class="col-3">
             <div class="mb-1">
               <i class="fas fa-comments fa-2x text-success"></i>
             </div>
             <h5 class="mb-0">{{ stats['answers'] }}</h5>
             <small class="text-muted">Answers</small>
+          </div>
+          <div class="col-3">
+            <div class="mb-1">
+              <i class="fas fa-star fa-2x text-warning"></i>
+            </div>
+            <h5 class="mb-0">{{ stats.get('total_stars', 0) }}</h5>
+            <small class="text-muted">Stars</small>
           </div>
         </div>
       </div>

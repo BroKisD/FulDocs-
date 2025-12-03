@@ -1,0 +1,130 @@
+{% extends 'base.html' %}
+
+{% block title %}Welcome to FulDocs - Getting Started{% endblock %}
+
+{% block extra_css %}
+<style>
+  .welcome-container {
+    max-width: 800px;
+    margin: 2rem auto;
+    padding: 2rem;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.1);
+  }
+  .welcome-header {
+    text-align: center;
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #eee;
+  }
+  .welcome-step {
+    display: flex;
+    margin-bottom: 2rem;
+    align-items: flex-start;
+  }
+  .step-number {
+    background: #0d6efd;
+    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 1rem;
+    flex-shrink: 0;
+    margin-top: 0.25rem;
+  }
+  .step-content {
+    flex: 1;
+  }
+  .feature-icon {
+    font-size: 2rem;
+    color: #0d6efd;
+    margin-bottom: 1rem;
+  }
+  .btn-get-started {
+    padding: 0.75rem 2rem;
+    font-size: 1.1rem;
+  }
+  .screenshot {
+    border: 1px solid #eee;
+    border-radius: 8px;
+    margin: 1rem 0;
+    max-width: 100%;
+    height: auto;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="welcome-container">
+  <div class="welcome-header">
+    <h1>👋 Welcome to FulDocs!</h1>
+    <p class="lead">Your educational platform for sharing and discovering learning resources</p>
+  </div>
+
+  <div class="welcome-step">
+    <div class="step-number">1</div>
+    <div class="step-content">
+      <h4>Explore Learning Materials</h4>
+      <p>Browse through a wide range of documents, tutorials, and resources shared by educators and students.</p>
+      <ul>
+        <li>Use the search bar to find specific topics</li>
+        <li>Filter by document type or status</li>
+        <li>Preview documents before downloading</li>
+      </ul>
+      <img src="{{ url_for('static', filename='img/explore-screenshot.jpg') }}" alt="Explore materials" class="screenshot d-block mx-auto" style="max-width: 100%;">
+    </div>
+  </div>
+
+  <div class="welcome-step">
+    <div class="step-number">2</div>
+    <div class="step-content">
+      <h4>Share Your Knowledge</h4>
+      <p>Contribute to the community by uploading your own educational materials.</p>
+      <ul>
+        <li>Click "Upload" in the navigation bar</li>
+        <li>Add detailed descriptions and tags</li>
+        <li>Help others by verifying content</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="welcome-step">
+    <div class="step-number">3</div>
+    <div class="step-content">
+      <h4>Engage with the Community</h4>
+      <p>Ask questions, provide answers, and interact with other learners.</p>
+      <ul>
+        <li>Post questions in the Q&A section</li>
+        <li>Answer questions to help others</li>
+        <li>Upvote helpful content</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="welcome-step">
+    <div class="step-number">4</div>
+    <div class="step-content">
+      <h4>Track Your Progress</h4>
+      <p>Monitor your activity and contributions in your profile.</p>
+      <ul>
+        <li>View your uploaded documents</li>
+        <li>See your questions and answers</li>
+        <li>Track your verification status</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="text-center mt-5">
+    <a href="{{ url_for('feed') }}" class="btn btn-primary btn-get-started">
+      Get Started <i class="fas fa-arrow-right ms-2"></i>
+    </a>
+    <p class="text-muted mt-2">
+      <small>You can always access this guide later from your profile menu</small>
+    </p>
+  </div>
+</div>
+{% endblock %}

@@ -3,6 +3,7 @@
 {% block title %}Feed - FulDocs{% endblock %}
 
 {% block content %}
+<script src="{{ url_for('static', filename='js/star.js') }}"></script>
 <!-- Document Preview Modal -->
 <div class="modal fade" id="documentPreviewModal" tabindex="-1" aria-labelledby="documentPreviewModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-centered">
@@ -68,7 +69,15 @@
             <div class="d-flex justify-content-between align-items-start mb-2">
               <div class="flex-grow-1">
                 <h5 class="card-title d-inline-block">
-                  {{ item['title'] }}
+                  {% if item['type'] == 'Document' %}
+                    <a href="{{ url_for('view_document', doc_id=item['id']) }}" class="text-decoration-none">
+                      {{ item['title'] }}
+                    </a>
+                  {% else %}
+                    <a href="{{ url_for('question_detail', question_id=item['id']) }}" class="text-decoration-none">
+                      {{ item['title'] }}
+                    </a>
+                  {% endif %}
                 </h5>
                 <span class="badge bg-secondary ms-2">
                   <i class="fas fa-{{ 'file-alt' if item['type'] == 'Document' else 'question-circle' }} me-1"></i>
@@ -107,13 +116,17 @@
               </button>
             </div>
             
-            <div class="mb-2">
-              <a href="{{ url_for('profile', user_id=item.author_id) }}" class="text-decoration-none">
-                <small class="text-muted">
-                  <i class="fas fa-user me-1"></i>
-                  <strong>{{ item.author_name or item.author }}</strong>
-                </small>
+            <div class="d-flex align-items-center">
+              <a href="{{ url_for('profile', user_id=item['user_id']) }}" class="text-decoration-none text-muted small me-3">
+                <i class="fas fa-user me-1"></i>
+                {{ item['author_name'] or item['author'] }}
               </a>
+              <button class="btn btn-sm btn-outline-secondary star-btn me-2" 
+                      data-item-type="{{ 'document' if item['type'] == 'Document' else 'answer' }}" 
+                      data-item-id="{{ item['id'] }}">
+                <i class="far fa-star"></i>
+                <span class="star-count ms-1">{{ item.get('star_count', 0) }}</span>
+              </button>
               <small class="text-muted ms-3">
                 <i class="fas fa-calendar me-1"></i>
                 {{ item.created_at[:10] if item.created_at is not none else 'N/A' }}
@@ -238,6 +251,27 @@
             alt="${doc.title}" 
             class="img-fluid d-block mx-auto" 
             style="max-height: 500px; object-fit: contain;">`;
+      } else if (doc.file_type === 'html') {
+        // For HTML files, we can either use an iframe or display the content directly
+        if (doc.html_content) {
+          // If we have the HTML content in the response, display it directly
+          filePreview.innerHTML = `
+            <div style="max-height: 500px; overflow-y: auto; border: 1px solid #eee; padding: 1rem; border-radius: 4px;">
+              ${doc.html_content}
+            </div>`;
+        } else {
+          // Fallback to iframe if we don't have the content
+          filePreview.innerHTML = `
+            <iframe 
+              src="/document/html/${doc.file_path}" 
+              width="100%" 
+              height="600" 
+              style="border: 1px solid #eee; border-radius: 4px;"
+              sandbox="allow-same-origin allow-scripts"
+              referrerpolicy="no-referrer">
+              Your browser does not support iframes.
+            </iframe>`;
+        }
       } else {
         filePreview.innerHTML = `
           <div class="text-center py-5">

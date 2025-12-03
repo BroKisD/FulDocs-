@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RS-485 Multi-Node Chat (TDM)</title>
+    
+    <!-- Import Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <!-- Import FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <style>
+        /* --- General Page Styles --- */
+        body {
+            font-family: 'Roboto', sans-serif;
+            color: #333333; 
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background-color: #ceedf6; /* Light Blue Background */
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 40px auto;
+            background: white;
+            padding: 40px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            border-radius: 8px;
+        }
+
+        /* --- Header Styling --- */
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 5px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            font-size: 1.2em;
+            margin-top: 0;
+            margin-bottom: 20px;
+        }
+
+        .divider {
+            border: 0;
+            height: 1px;
+            background: #ddd;
+            margin: 20px 0;
+        }
+
+        /* --- Metadata Box --- */
+        .metadata-box {
+            background-color: #f9f9f9;
+            padding: 15px;
+            text-align: center;
+            border-radius: 4px;
+            margin-bottom: 30px;
+            font-size: 0.95em;
+            border: 1px solid #eee;
+        }
+
+        .meta-label {
+            color: #00196e; /* Deep Navy Blue */
+            font-weight: bold;
+        }
+
+        /* --- Section Headers --- */
+        h2 {
+            color: #00196e; /* Deep Navy Blue */
+            font-size: 1.8em;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 10px;
+        }
+
+        h3 {
+            color: #333;
+            margin-top: 25px;
+            border-left: 4px solid #00196e;
+            padding-left: 10px;
+        }
+
+        /* --- Lists --- */
+        ul, ol {
+            margin-bottom: 20px;
+        }
+        li {
+            margin-bottom: 10px;
+        }
+
+        /* --- Tables --- */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 0.95em;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #00196e;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+
+        /* --- Info/Warning Box --- */
+        .info-box {
+            background-color: #fff3cd;
+            border: 1px solid #ffeeba;
+            border-left: 5px solid #ffa000;
+            color: #856404;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+            display: flex;
+            align-items: flex-start;
+            gap: 15px;
+        }
+
+        .warning-box {
+            background-color: #ffebee;
+            border: 1px solid #ffcdd2;
+            border-left: 5px solid #d32f2f;
+            color: #b71c1c;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+            display: flex;
+            align-items: flex-start;
+            gap: 15px;
+        }
+
+        .info-box i, .warning-box i {
+            font-size: 1.4em;
+            margin-top: 3px;
+        }
+
+        /* --- Code Block Styling --- */
+        .code-container {
+            background-color: #F7F7F7;
+            border: 1px solid #e1e1e1;
+            border-radius: 5px;
+            margin: 20px 0;
+            overflow: hidden;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        .code-header {
+            background-color: #eee;
+            padding: 8px 15px;
+            font-weight: bold;
+            font-size: 0.9em;
+            border-bottom: 1px solid #ddd;
+            color: #555;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .code-content {
+            padding: 15px;
+            overflow-x: auto;
+            white-space: pre;
+            font-size: 0.9em;
+            line-height: 1.5;
+        }
+
+        /* Syntax Highlighting Colors */
+        .kw-teal { color: #00979C; font-weight: bold; }   
+        .kw-orange { color: #D35400; font-weight: bold; } 
+        .kw-blue { color: #005C5F; }                      
+        .comment { color: #888888; font-style: italic; }  
+        .string { color: #005C5F; }
+        .linenum { color: #ccc; margin-right: 15px; user-select: none; }
+        .preproc { color: #5e6d03; }
+
+        /* --- Links --- */
+        a {
+            color: #00196e; 
+            text-decoration: none;
+            font-weight: bold;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+
+        /* --- Responsive --- */
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+                margin: 0;
+                border-radius: 0;
+            }
+            h1 { font-size: 2em; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- Title Section -->
+        <h1>RS-485 Multi-Node Chat (TDM)</h1>
+        <p class="subtitle">Industrial wired communication with Collision Avoidance</p>
+
+        <!-- Metadata Section -->
+        <div class="metadata-box">
+            <span class="meta-label">Category:</span> Embedded - Signal - System, Electronic, IoT &nbsp;|&nbsp; 
+            <span class="meta-label">Level:</span> 200 - Intermediate
+        </div>
+
+        <hr class="divider">
+
+        <p><strong>Need to connect multiple microcontrollers over a long distance (up to 1200m)?</strong> RS-485 is the industrial standard for robust communication. Unlike I2C or SPI, it uses differential signaling to resist noise.</p>
+        <p>In this advanced tutorial, we will build a <strong>3-Node Chat System</strong>. Since RS-485 is "Half-Duplex" (only one person can speak at a time), we will implement a <strong>Time Division Multiplexing (TDM)</strong> algorithm to ensure nodes take turns talking.</p>
+
+        <!-- Prerequisites -->
+        <h2>Prerequisites</h2>
+        <ul>
+            <li><i class="fas fa-check-circle" style="color:#00196e"></i> <strong>3x Arduino Boards</strong> (Uno or Nano recommended for 5V logic).</li>
+            <li><i class="fas fa-check-circle" style="color:#00196e"></i> <strong>3x MAX485 Modules</strong> (TTL to RS-485 adapters).</li>
+            <li><i class="fas fa-check-circle" style="color:#00196e"></i> <strong>Twisted Pair Wire</strong> to connect the nodes.</li>
+        </ul>
+
+        <div class="info-box">
+            <i class="fas fa-info-circle"></i>
+            <div>
+                <strong>ESP32 Note:</strong> The standard MAX485 module requires 5V. If you use ESP32 (3.3V), use the <strong>MAX3485</strong> module instead, or use a Logic Level Converter, otherwise you risk damaging the ESP32.
+            </div>
+        </div>
+
+        <!-- Theory Section -->
+        <h2>The Logic: Time Division Multiplexing (TDM)</h2>
+        <p>Imagine a walkie-talkie channel. If Node 1 and Node 2 press the talk button at the same time, the audio screeches (Collision). To prevent this without a central "Master", we use time slots based on the system clock.</p>
+        
+        <p><strong>The Schedule (Total Cycle: 3000ms):</strong></p>
+        <ul>
+            <li><strong>0ms - 1000ms:</strong> Node 1 turn to speak.</li>
+            <li><strong>1000ms - 2000ms:</strong> Node 2 turn to speak.</li>
+            <li><strong>2000ms - 3000ms:</strong> Node 3 turn to speak.</li>
+        </ul>
+        <p>Even if you type a message on Node 1 at 1500ms, the code will wait until the timer loops back to 0ms before sending it.</p>
+
+        <!-- Wiring Section -->
+        <h2>Wiring the Bus</h2>
+        <p>Connect all modules in a daisy-chain configuration (Parallel).</p>
+
+        <table>
+            <tr>
+                <th>MAX485 Pin</th>
+                <th>Arduino Pin</th>
+                <th>ESP32 Pin (Optional)</th>
+                <th>Function</th>
+            </tr>
+            <tr><td>VCC</td><td>5V</td><td>3.3V (if MAX3485)</td><td>Power</td></tr>
+            <tr><td>GND</td><td>GND</td><td>GND</td><td>Ground</td></tr>
+            <tr><td>RO (RX)</td><td>Pin 2</td><td>GPIO 16</td><td>Receiver Output</td></tr>
+            <tr><td>DI (TX)</td><td>Pin 3</td><td>GPIO 17</td><td>Driver Input</td></tr>
+            <tr><td>DE & RE</td><td>Pin 4</td><td>GPIO 4</td><td>Control Pin (Connect DE & RE together)</td></tr>
+            <tr><td>A</td><td>Connect to A of all other modules</td><td>Same</td><td>Data Line +</td></tr>
+            <tr><td>B</td><td>Connect to B of all other modules</td><td>Same</td><td>Data Line -</td></tr>
+        </table>
+
+        <!-- Code Section -->
+        <h2>The Multi-Node Code</h2>
+        <p>The code below is universal. You simply upload the <strong>same code</strong> to all 3 boards, but change the <code>MY_NODE_ID</code> variable at the top.</p>
+
+        <h3>How to use the Serial Input:</h3>
+        <p>Type in the Serial Monitor in this format: <code>TargetID:Message</code></p>
+        <ul>
+            <li><code>2:Hello there</code> &rarr; Sends "Hello there" to Node 2 only.</li>
+            <li><code>0:Emergency</code> &rarr; Sends "Emergency" to ALL nodes (Broadcast).</li>
+        </ul>
+
+        <div class="code-container">
+            <div class="code-header"><span>RS485_TDM_Node.ino</span> <span>C++</span></div>
+            <div class="code-content">
+<span class="linenum">1</span><span class="kw-teal">#include</span> &lt;SoftwareSerial.h&gt;
+<span class="linenum">2</span>
+<span class="linenum">3</span><span class="comment">// --- CONFIGURATION ---</span>
+<span class="linenum">4</span><span class="comment">// CHANGE THIS for each board: 1, 2, or 3</span>
+<span class="linenum">5</span><span class="kw-teal">const</span> <span class="kw-teal">int</span> MY_NODE_ID = 1; 
+<span class="linenum">6</span>
+<span class="linenum">7</span><span class="kw-teal">const</span> <span class="kw-teal">int</span> TOTAL_NODES = 3;
+<span class="linenum">8</span><span class="kw-teal">const</span> <span class="kw-teal">int</span> SLOT_TIME = 1000; <span class="comment">// 1 second per node</span>
+<span class="linenum">9</span>
+<span class="linenum">10</span><span class="comment">// --- PINS ---</span>
+<span class="linenum">11</span><span class="preproc">#define</span> RX_PIN 2
+<span class="linenum">12</span><span class="preproc">#define</span> TX_PIN 3
+<span class="linenum">13</span><span class="preproc">#define</span> RE_DE_PIN 4  <span class="comment">// High = Transmit, Low = Receive</span>
+<span class="linenum">14</span>
+<span class="linenum">15</span>SoftwareSerial RS485Serial(RX_PIN, TX_PIN);
+<span class="linenum">16</span>String messageBuffer = <span class="string">""</span>;
+<span class="linenum">17</span><span class="kw-teal">int</span> targetID = -1;
+<span class="linenum">18</span><span class="kw-teal">bool</span> hasMessageToSend = <span class="kw-teal">false</span>;
+<span class="linenum">19</span>
+<span class="linenum">20</span><span class="kw-teal">void</span> <span class="kw-orange">setup</span>() {
+<span class="linenum">21</span>  Serial.<span class="kw-orange">begin</span>(9600);
+<span class="linenum">22</span>  RS485Serial.<span class="kw-orange">begin</span>(9600);
+<span class="linenum">23</span>  <span class="kw-orange">pinMode</span>(RE_DE_PIN, <span class="kw-blue">OUTPUT</span>);
+<span class="linenum">24</span>  
+<span class="linenum">25</span>  <span class="comment">// Start in Receive Mode</span>
+<span class="linenum">26</span>  <span class="kw-orange">digitalWrite</span>(RE_DE_PIN, <span class="kw-blue">LOW</span>); 
+<span class="linenum">27</span>  
+<span class="linenum">28</span>  Serial.<span class="kw-orange">print</span>(<span class="string">"Node "</span>);
+<span class="linenum">29</span>  Serial.<span class="kw-orange">print</span>(MY_NODE_ID);
+<span class="linenum">30</span>  Serial.<span class="kw-orange">println</span>(<span class="string">" Ready. Format: 'TargetID:Message'"</span>);
+<span class="linenum">31</span>}
+<span class="linenum">32</span>
+<span class="linenum">33</span><span class="kw-teal">void</span> <span class="kw-orange">loop</span>() {
+<span class="linenum">34</span>  <span class="comment">// 1. Handle Serial Input from User</span>
+<span class="linenum">35</span>  <span class="kw-teal">if</span> (Serial.<span class="kw-orange">available</span>() &gt; 0) {
+<span class="linenum">36</span>    String input = Serial.<span class="kw-orange">readStringUntil</span>(<span class="string">'\n'</span>);
+<span class="linenum">37</span>    <span class="kw-teal">int</span> separatorIndex = input.<span class="kw-orange">indexOf</span>(<span class="string">':'</span>);
+<span class="linenum">38</span>    
+<span class="linenum">39</span>    <span class="kw-teal">if</span> (separatorIndex != -1) {
+<span class="linenum">40</span>      targetID = input.<span class="kw-orange">substring</span>(0, separatorIndex).<span class="kw-orange">toInt</span>();
+<span class="linenum">41</span>      messageBuffer = input.<span class="kw-orange">substring</span>(separatorIndex + 1);
+<span class="linenum">42</span>      hasMessageToSend = <span class="kw-teal">true</span>;
+<span class="linenum">43</span>      Serial.<span class="kw-orange">println</span>(<span class="string">"[System] Message Buffered. Waiting for slot..."</span>);
+<span class="linenum">44</span>    } <span class="kw-teal">else</span> {
+<span class="linenum">45</span>      Serial.<span class="kw-orange">println</span>(<span class="string">"[Error] Invalid Format. Use 'ID:Msg'"</span>);
+<span class="linenum">46</span>    }
+<span class="linenum">47</span>  }
+<span class="linenum">48</span>
+<span class="linenum">49</span>  <span class="comment">// 2. Calculate TDM Time Slot</span>
+<span class="linenum">50</span>  <span class="kw-teal">unsigned</span> <span class="kw-teal">long</span> currentTime = <span class="kw-orange">millis</span>();
+<span class="linenum">51</span>  <span class="kw-teal">int</span> currentSlot = (currentTime / SLOT_TIME) % TOTAL_NODES + 1;
+<span class="linenum">52</span>
+<span class="linenum">53</span>  <span class="comment">// 3. Transmit Logic (If it is my turn)</span>
+<span class="linenum">54</span>  <span class="kw-teal">if</span> (currentSlot == MY_NODE_ID) {
+<span class="linenum">55</span>    <span class="kw-teal">if</span> (hasMessageToSend) {
+<span class="linenum">56</span>      <span class="comment">// Switch to TX Mode</span>
+<span class="linenum">57</span>      <span class="kw-orange">digitalWrite</span>(RE_DE_PIN, <span class="kw-blue">HIGH</span>); 
+<span class="linenum">58</span>      <span class="kw-orange">delay</span>(10); <span class="comment">// Stability delay</span>
+<span class="linenum">59</span>      
+<span class="linenum">60</span>      <span class="comment">// Send Packet: &lt;SenderID,TargetID,Message&gt;</span>
+<span class="linenum">61</span>      RS485Serial.<span class="kw-orange">print</span>(<span class="string">"&lt;"</span>);
+<span class="linenum">62</span>      RS485Serial.<span class="kw-orange">print</span>(MY_NODE_ID);
+<span class="linenum">63</span>      RS485Serial.<span class="kw-orange">print</span>(<span class="string">","</span>);
+<span class="linenum">64</span>      RS485Serial.<span class="kw-orange">print</span>(targetID);
+<span class="linenum">65</span>      RS485Serial.<span class="kw-orange">print</span>(<span class="string">","</span>);
+<span class="linenum">66</span>      RS485Serial.<span class="kw-orange">print</span>(messageBuffer);
+<span class="linenum">67</span>      RS485Serial.<span class="kw-orange">println</span>(<span class="string">"&gt;"</span>);
+<span class="linenum">68</span>      
+<span class="linenum">69</span>      Serial.<span class="kw-orange">println</span>(<span class="string">"[Sent] Data transmitted."</span>);
+<span class="linenum">70</span>      
+<span class="linenum">71</span>      <span class="comment">// Wait for transmission to finish then switch back</span>
+<span class="linenum">72</span>      RS485Serial.<span class="kw-orange">flush</span>();
+<span class="linenum">73</span>      <span class="kw-orange">digitalWrite</span>(RE_DE_PIN, <span class="kw-blue">LOW</span>);
+<span class="linenum">74</span>      
+<span class="linenum">75</span>      hasMessageToSend = <span class="kw-teal">false</span>;
+<span class="linenum">76</span>      messageBuffer = <span class="string">""</span>;
+<span class="linenum">77</span>    }
+<span class="linenum">78</span>  } 
+<span class="linenum">79</span>  <span class="comment">// 4. Receive Logic (If it is NOT my turn)</span>
+<span class="linenum">80</span>  <span class="kw-teal">else</span> {
+<span class="linenum">81</span>    <span class="kw-orange">digitalWrite</span>(RE_DE_PIN, <span class="kw-blue">LOW</span>); <span class="comment">// Ensure RX Mode</span>
+<span class="linenum">82</span>    
+<span class="linenum">83</span>    <span class="kw-teal">if</span> (RS485Serial.<span class="kw-orange">available</span>()) {
+<span class="linenum">84</span>      String packet = RS485Serial.<span class="kw-orange">readStringUntil</span>(<span class="string">'\n'</span>);
+<span class="linenum">85</span>      
+<span class="linenum">86</span>      <span class="comment">// Simple Packet Parsing</span>
+<span class="linenum">87</span>      <span class="kw-teal">int</span> startIdx = packet.<span class="kw-orange">indexOf</span>(<span class="string">'&lt;'</span>);
+<span class="linenum">88</span>      <span class="kw-teal">int</span> endIdx = packet.<span class="kw-orange">indexOf</span>(<span class="string">'&gt;'</span>);
+<span class="linenum">89</span>      
+<span class="linenum">90</span>      <span class="kw-teal">if</span> (startIdx != -1 && endIdx != -1) {
+<span class="linenum">91</span>        String data = packet.<span class="kw-orange">substring</span>(startIdx + 1, endIdx);
+<span class="linenum">92</span>        
+<span class="linenum">93</span>        <span class="kw-teal">int</span> firstComma = data.<span class="kw-orange">indexOf</span>(<span class="string">','</span>);
+<span class="linenum">94</span>        <span class="kw-teal">int</span> secondComma = data.<span class="kw-orange">lastIndexOf</span>(<span class="string">','</span>);
+<span class="linenum">95</span>        
+<span class="linenum">96</span>        <span class="kw-teal">int</span> sender = data.<span class="kw-orange">substring</span>(0, firstComma).<span class="kw-orange">toInt</span>();
+<span class="linenum">97</span>        <span class="kw-teal">int</span> target = data.<span class="kw-orange">substring</span>(firstComma + 1, secondComma).<span class="kw-orange">toInt</span>();
+<span class="linenum">98</span>        String msg = data.<span class="kw-orange">substring</span>(secondComma + 1);
+<span class="linenum">99</span>        
+<span class="linenum">100</span>       <span class="comment">// Filter: Is this for me? Or Broadcast (0)?</span>
+<span class="linenum">101</span>       <span class="kw-teal">if</span> (target == MY_NODE_ID || target == 0) {
+<span class="linenum">102</span>         Serial.<span class="kw-orange">print</span>(<span class="string">"Message from Node "</span>);
+<span class="linenum">103</span>         Serial.<span class="kw-orange">print</span>(sender);
+<span class="linenum">104</span>         Serial.<span class="kw-orange">print</span>(<span class="string">": "</span>);
+<span class="linenum">105</span>         Serial.<span class="kw-orange">println</span>(msg);
+<span class="linenum">106</span>       }
+<span class="linenum">107</span>     }
+<span class="linenum">108</span>   }
+<span class="linenum">109</span> }
+<span class="linenum">110</span>}</div>
+        </div>
+        <h2>Testing the Network</h2>
+        <p>To verify the system works, you need to power up all 3 nodes simultaneously (or press the Reset button on all of them at the same time to sync the clocks).</p>
+
+        <ol>
+            <li><strong>Upload:</strong> Upload the code to Node 1 (<code>MY_NODE_ID = 1</code>). Repeat for Node 2 and 3, changing the ID.</li>
+            <li><strong>Monitor:</strong> Open 3 separate Serial Monitor windows (if possible) or switch ports to check each.</li>
+            <li><strong>Sync:</strong> Press the Reset button on all boards at the same time. This resets their internal <code>millis()</code> timer so they agree on who speaks when.</li>
+            <li><strong>Test:</strong> On Node 1's serial monitor, type: <code>2:Hello Neighbor</code>.</li>
+            <li><strong>Result:</strong> Node 2 should print <code>Message from Node 1: Hello Neighbor</code>. Node 3 should remain silent (it ignores messages not meant for it).</li>
+            <li><strong>Broadcast:</strong> On Node 3, type: <code>0:Party Time</code>. Both Node 1 and Node 2 should receive it.</li>
+        </ol>
+
+        <div class="warning-box">
+            <i class="fas fa-exclamation-triangle"></i>
+            <div>
+                <strong>Clock Drift:</strong> Since we are not using a shared hardware clock line, the internal clocks of the Arduinos will eventually drift apart (after 10-20 minutes). In a real industrial environment, you would use a "Master" node to send a sync pulse every few seconds to reset the timers.
+            </div>
+        </div>
+
+        <h2>Wrapping Up</h2>
+        <p>You have implemented a collision-free communication system using TDM. This logic is the foundation of many industrial protocols where reliability is more important than raw speed.</p>
+
+    </div>
+
+</body>
+</html>

@@ -69,28 +69,13 @@
             {% endif %}
             
             <div class="row">
-              <!-- Vote Section -->
-              <div class="col-auto text-center">
-                <button class="btn btn-sm vote-btn {% if user_votes.get(answer['id']) == 'up' %}btn-success{% else %}btn-outline-secondary{% endif %}" 
-                        data-answer-id="{{ answer['id'] }}" 
-                        data-vote-type="up">
-                  <i class="fas fa-chevron-up"></i>
-                </button>
-                <div class="my-2">
-                  <strong class="score" data-answer-id="{{ answer['id'] }}">
-                    {{ answer['upvotes'] - answer['downvotes'] }}
-                  </strong>
-                </div>
-                <button class="btn btn-sm vote-btn {% if user_votes.get(answer['id']) == 'down' %}btn-danger{% else %}btn-outline-secondary{% endif %}" 
-                        data-answer-id="{{ answer['id'] }}" 
-                        data-vote-type="down">
-                  <i class="fas fa-chevron-down"></i>
-                </button>
-                
+                <!-- Action Buttons -->
+              <div class="col-auto">
                 {% if session.user_id == question['user_id'] and not answer['is_accepted'] %}
-                <button class="btn btn-sm btn-outline-success mt-3 accept-btn" 
-                        data-answer-id="{{ answer['id'] }}">
-                  <i class="fas fa-check"></i>
+                <button class="btn btn-sm btn-outline-success accept-btn" 
+                        data-answer-id="{{ answer['id'] }}"
+                        title="Accept this answer">
+                  <i class="fas fa-check"></i> Accept
                 </button>
                 {% endif %}
               </div>
@@ -99,17 +84,35 @@
               <div class="col">
                 <p style="white-space: pre-wrap;">{{ answer['content'] }}</p>
                 
-                <div class="mt-3 text-end">
-                  <small class="text-muted">
-                    <a href="{{ url_for('profile', user_id=answer['author_id']) }}" class="text-decoration-none">
-                      <i class="fas fa-user me-1"></i>
-                      <strong>{{ answer['author_name'] or answer['author'] }}</strong>
-                    </a>
-                    <span class="ms-2">
-                      <i class="fas fa-clock me-1"></i>
-                      {{ answer['created_at'][:16] if answer['created_at'] else 'N/A' }}
+                <div class="d-flex justify-content-between align-items-center mt-3">
+                  <!-- Star Button -->
+                  <div>
+                    <button class="btn btn-sm btn-outline-secondary star-btn {% if answer.get('is_starred') %}starred{% endif %}" 
+                            data-item-type="answer" 
+                            data-item-id="{{ answer['id'] }}">
+                      <i class="{% if answer.get('is_starred') %}fas{% else %}far{% endif %} fa-star me-1"></i>
+                      <span>{% if answer.get('is_starred') %}Starred{% else %}Star{% endif %}</span>
+                    </button>
+                    <span class="ms-2 star-count" 
+                          data-item-type="answer" 
+                          data-item-id="{{ answer['id'] }}">
+                      {{ answer.get('star_count', 0) }}
                     </span>
-                  </small>
+                  </div>
+                  
+                  <!-- Author and timestamp -->
+                  <div class="text-end">
+                    <small class="text-muted">
+                      <a href="{{ url_for('profile', user_id=answer['author_id']) }}" class="text-decoration-none">
+                        <i class="fas fa-user me-1"></i>
+                        <strong>{{ answer['author_name'] or answer['author'] }}</strong>
+                      </a>
+                      <span class="ms-2">
+                        <i class="fas fa-clock me-1"></i>
+                        {{ answer['created_at'][:16] if answer['created_at'] else 'N/A' }}
+                      </span>
+                    </small>
+                  </div>
                 </div>
               </div>
             </div>
@@ -190,50 +193,25 @@
 </div>
 {% endblock %}
 
-{% block scripts %}
-<script>
-  // Vote functionality
-  document.querySelectorAll('.vote-btn').forEach(btn => {
-    btn.addEventListener('click', async function() {
-      const answerId = this.dataset.answerId;
-      const voteType = this.dataset.voteType;
-      
-      try {
-        const response = await fetch(`/answer/${answerId}/vote`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ vote_type: voteType })
-        });
-        
-        const data = await response.json();
-        
-        // Update score
-        document.querySelector(`.score[data-answer-id="${answerId}"]`).textContent = data.score;
-        
-        // Update button states
-        const upBtn = document.querySelector(`.vote-btn[data-answer-id="${answerId}"][data-vote-type="up"]`);
-        const downBtn = document.querySelector(`.vote-btn[data-answer-id="${answerId}"][data-vote-type="down"]`);
-        
-        // Reset both buttons
-        upBtn.className = 'btn btn-sm vote-btn btn-outline-secondary';
-        downBtn.className = 'btn btn-sm vote-btn btn-outline-secondary';
-        
-        // Highlight active vote
-        if (data.score > 0) {
-          upBtn.classList.remove('btn-outline-secondary');
-          upBtn.classList.add('btn-success');
-        } else if (data.score < 0) {
-          downBtn.classList.remove('btn-outline-secondary');
-          downBtn.classList.add('btn-danger');
-        }
-      } catch (error) {
-        console.error('Error:', error);
-      }
-    });
-  });
+{% block styles %}
+<style>
+  .star-btn.starred {
+    color: #ffc107;
+    border-color: #ffc107;
+  }
+  .star-btn:hover {
+    color: #ffc107;
+  }
+  .star-count {
+    font-weight: bold;
+    color: #6c757d;
+  }
+</style>
+{% endblock %}
 
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/star.js') }}"></script>
+<script>
   // Accept answer functionality
   document.querySelectorAll('.accept-btn').forEach(btn => {
     btn.addEventListener('click', async function() {
@@ -241,17 +219,15 @@
       
       try {
         const response = await fetch(`/answer/${answerId}/accept`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          }
+          method: 'POST'
         });
         
         if (response.ok) {
-          location.reload();
+          // Reload the page to show the accepted answer
+          window.location.reload();
         }
       } catch (error) {
-        console.error('Error:', error);
+        console.error('Error accepting answer:', error);
       }
     });
   });

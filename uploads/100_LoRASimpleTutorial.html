@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Getting Started with LoRa SX1278 (Ra-02)</title>
+    
+    <!-- Import Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <!-- Import FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <style>
+        /* --- General Page Styles --- */
+        body {
+            font-family: 'Roboto', sans-serif;
+            color: #333333; 
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background-color: #ceedf6; /* Light Blue Background */
+        }
+
+        .container {
+            max-width: 850px;
+            margin: 40px auto;
+            background: white;
+            padding: 40px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            border-radius: 8px;
+        }
+
+        /* --- Header Styling --- */
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 5px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            font-size: 1.2em;
+            margin-top: 0;
+            margin-bottom: 20px;
+        }
+
+        .divider {
+            border: 0;
+            height: 1px;
+            background: #ddd;
+            margin: 20px 0;
+        }
+
+        /* --- Metadata Box --- */
+        .metadata-box {
+            background-color: #f9f9f9;
+            padding: 15px;
+            text-align: center;
+            border-radius: 4px;
+            margin-bottom: 30px;
+            font-size: 0.95em;
+            border: 1px solid #eee;
+        }
+
+        .meta-label {
+            color: #00196e; /* Deep Navy Blue */
+            font-weight: bold;
+        }
+
+        /* --- Section Headers --- */
+        h2 {
+            color: #00196e; /* Deep Navy Blue */
+            font-size: 1.8em;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 10px;
+        }
+
+        h3 {
+            color: #333;
+            margin-top: 25px;
+            border-left: 4px solid #00196e;
+            padding-left: 10px;
+        }
+
+        /* --- Lists --- */
+        ul, ol {
+            margin-bottom: 20px;
+        }
+        li {
+            margin-bottom: 10px;
+        }
+
+        /* --- Tables for Pinout --- */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 0.95em;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #00196e;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+
+        /* --- Info/Warning Box --- */
+        .info-box {
+            background-color: #fff3cd;
+            border: 1px solid #ffeeba;
+            border-left: 5px solid #ffa000;
+            color: #856404;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+            display: flex;
+            align-items: flex-start;
+            gap: 15px;
+        }
+        
+        .warning-box {
+            background-color: #ffebee;
+            border: 1px solid #ffcdd2;
+            border-left: 5px solid #d32f2f;
+            color: #b71c1c;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+            display: flex;
+            align-items: flex-start;
+            gap: 15px;
+        }
+
+        .info-box i, .warning-box i {
+            font-size: 1.4em;
+            margin-top: 3px;
+        }
+
+        /* --- Code Block Styling --- */
+        .code-container {
+            background-color: #F7F7F7;
+            border: 1px solid #e1e1e1;
+            border-radius: 5px;
+            margin: 20px 0;
+            overflow: hidden;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        .code-header {
+            background-color: #eee;
+            padding: 8px 15px;
+            font-weight: bold;
+            font-size: 0.9em;
+            border-bottom: 1px solid #ddd;
+            color: #555;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .code-content {
+            padding: 15px;
+            overflow-x: auto;
+            white-space: pre;
+            font-size: 0.9em;
+            line-height: 1.5;
+        }
+
+        /* Syntax Highlighting Colors */
+        .kw-teal { color: #00979C; font-weight: bold; }   
+        .kw-orange { color: #D35400; font-weight: bold; } 
+        .kw-blue { color: #005C5F; }                      
+        .comment { color: #888888; font-style: italic; }  
+        .string { color: #005C5F; }
+        .linenum { color: #ccc; margin-right: 15px; user-select: none; }
+        .preproc { color: #5e6d03; }
+
+        /* --- Links --- */
+        a {
+            color: #00196e; /* Deep Navy Blue */
+            text-decoration: none;
+            font-weight: bold;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+
+        /* --- Responsive --- */
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+                margin: 0;
+                border-radius: 0;
+            }
+            h1 { font-size: 2em; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- Title Section -->
+        <h1>Getting Started with LoRa </h1>
+        <p class="subtitle">Long Range communication</p>
+
+        <!-- Metadata Section -->
+        <div class="metadata-box">
+            <span class="meta-label">Category:</span> IoT, Embedded - Signal - System, Electronic &nbsp;|&nbsp; 
+            <span class="meta-label">Level:</span> 200 - Intermediate
+        </div>
+
+        <hr class="divider">
+
+        <p><strong>Want to send data hundreds meters away or through water without Wi-Fi?</strong> LoRa (Long Range) is a modulation technique that allows for long-distance communication with very low power consumption. In this guide, we will use the popular <strong>Ai-Thinker Ra-02 (SX1278)</strong> module.</p>
+
+        <!-- Prerequisites -->
+        <h2>Prerequisites</h2>
+        <p>To test communication, you need <strong>two</strong> devices (one sender, one receiver).</p>
+        <ul>
+            <li><i class="fas fa-check-circle" style="color:#00196e"></i> <strong>2x Ra-02 (SX1278) Modules</strong> (433MHz)</li>
+            <li><i class="fas fa-check-circle" style="color:#00196e"></i> <strong>2x 433MHz Antennas</strong> (Coil or SMA)</li>
+            <li><i class="fas fa-check-circle" style="color:#00196e"></i> <strong>Microcontrollers:</strong> Arduino Uno OR ESP32 Dev Kit V1</li>
+        </ul>
+
+        <!-- Warning Box: Antenna -->
+        <div class="warning-box">
+            <i class="fas fa-exclamation-triangle" style="color: #d32f2f;"></i>
+            <div>
+                <strong>CRITICAL WARNING:</strong> Never power the LoRa module without an antenna connected. This can damage the internal power amplifier of the chip instantly.
+            </div>
+        </div>
+
+        <!-- Wiring Section -->
+        <h2>Wiring the Hardware</h2>
+        <p>The Ra-02 uses SPI communication. The wiring differs slightly between the Arduino Uno (5V) and the ESP32 (3.3V).</p>
+
+        <!-- Warning Box: Voltage -->
+        <div class="info-box">
+            <i class="fas fa-bolt"></i>
+            <div>
+                <strong>Voltage Warning:</strong> The Ra-02 module runs on <strong>3.3V</strong>. Connecting VCC to 5V will destroy it. <br>
+                <em>Note for Arduino Users:</em> While the Uno has 5V logic on pins, it usually works for a quick test. For long-term projects, use a Logic Level Converter.
+            </div>
+        </div>
+
+        <h3>Option A: Wiring for ESP32 (Recommended)</h3>
+        <table>
+            <tr>
+                <th>Ra-02 Pin</th>
+                <th>ESP32 Pin (VSPI)</th>
+                <th>Function</th>
+            </tr>
+            <tr><td>3.3V</td><td>3V3</td><td>Power</td></tr>
+            <tr><td>GND</td><td>GND</td><td>Ground</td></tr>
+            <tr><td>NSS</td><td>GPIO 5</td><td>Chip Select</td></tr>
+            <tr><td>MOSI</td><td>GPIO 23</td><td>SPI Data</td></tr>
+            <tr><td>MISO</td><td>GPIO 19</td><td>SPI Data</td></tr>
+            <tr><td>SCK</td><td>GPIO 18</td><td>SPI Clock</td></tr>
+            <tr><td>RST</td><td>GPIO 14</td><td>Reset</td></tr>
+            <tr><td>DIO0</td><td>GPIO 2</td><td>Interrupt</td></tr>
+        </table>
+
+        <h3>Option B: Wiring for Arduino Uno</h3>
+        <table>
+            <tr>
+                <th>Ra-02 Pin</th>
+                <th>Arduino Uno Pin</th>
+                <th>Function</th>
+            </tr>
+            <tr><td>3.3V</td><td>3.3V (NOT 5V)</td><td>Power</td></tr>
+            <tr><td>GND</td><td>GND</td><td>Ground</td></tr>
+            <tr><td>NSS</td><td>Pin 10</td><td>Chip Select</td></tr>
+            <tr><td>MOSI</td><td>Pin 11</td><td>SPI Data</td></tr>
+            <tr><td>MISO</td><td>Pin 12</td><td>SPI Data</td></tr>
+            <tr><td>SCK</td><td>Pin 13</td><td>SPI Clock</td></tr>
+            <tr><td>RST</td><td>Pin 9</td><td>Reset</td></tr>
+            <tr><td>DIO0</td><td>Pin 2</td><td>Interrupt</td></tr>
+        </table>
+
+        <!-- Library Installation -->
+        <h2>Installing the Library</h2>
+        <p>We will use the standard library <strong>LoRa.h</strong>.</p>
+        <ol>
+            <li>Open Arduino IDE.</li>
+            <li>Go to <strong>Tools &rarr; Manage Libraries</strong>.</li>
+            <li>Search for <strong>"LoRa"</strong>.</li>
+            <li>Install the library (the one by <strong>Sandeep Mistry</strong> is recommended).</li>
+        </ol>
+
+        <!-- Code 1: Transmitter -->
+        <h2>Part 1: The Transmitter Code</h2>
+        <p>Upload this code to the board that will act as the Sender. This code waits for you to type text into the Serial Monitor, then transmits that text over LoRa.</p>
+        
+        <div class="code-container">
+            <div class="code-header"><span>LoRa Serial Transmitter</span> <span>C++</span></div>
+            <div class="code-content">
+<span class="linenum">1</span><span class="kw-teal">#include</span> &lt;SPI.h&gt;
+<span class="linenum">2</span><span class="kw-teal">#include</span> &lt;LoRa.h&gt;
+<span class="linenum">3</span>
+<span class="linenum">4</span><span class="comment">// Define pins for ESP32 (Change if using Arduino)</span>
+<span class="linenum">5</span><span class="preproc">#define</span> ss 5
+<span class="linenum">6</span><span class="preproc">#define</span> rst 14
+<span class="linenum">7</span><span class="preproc">#define</span> dio0 2
+<span class="linenum">8</span>
+<span class="linenum">9</span><span class="kw-teal">void</span> <span class="kw-orange">setup</span>() {
+<span class="linenum">10</span>  Serial.<span class="kw-orange">begin</span>(9600);
+<span class="linenum">11</span>  <span class="kw-teal">while</span> (!Serial);
+<span class="linenum">12</span>
+<span class="linenum">13</span>  Serial.<span class="kw-orange">println</span>(<span class="string">"LoRa Serial Sender"</span>);
+<span class="linenum">14</span>
+<span class="linenum">15</span>  <span class="comment">// --- ESP32 SPECIFIC SETUP ---</span>
+<span class="linenum">16</span>  <span class="comment">// Uncomment the next line if using ESP32!</span>
+<span class="linenum">17</span>  <span class="comment">// LoRa.setPins(ss, rst, dio0);</span>
+<span class="linenum">18</span>
+<span class="linenum">19</span>  <span class="comment">// Start LoRa at 433 MHz</span>
+<span class="linenum">20</span>  <span class="kw-teal">if</span> (!LoRa.<span class="kw-orange">begin</span>(433E6)) {
+<span class="linenum">21</span>    Serial.<span class="kw-orange">println</span>(<span class="string">"Starting LoRa failed!"</span>);
+<span class="linenum">22</span>    <span class="kw-teal">while</span> (1);
+<span class="linenum">23</span>  }
+<span class="linenum">24</span>  Serial.<span class="kw-orange">println</span>(<span class="string">"Type a message and press Enter..."</span>);
+<span class="linenum">25</span>}
+<span class="linenum">26</span>
+<span class="linenum">27</span><span class="kw-teal">void</span> <span class="kw-orange">loop</span>() {
+<span class="linenum">28</span>  <span class="comment">// Check if User entered text in Serial Monitor</span>
+<span class="linenum">29</span>  <span class="kw-teal">if</span> (Serial.<span class="kw-orange">available</span>()) {
+<span class="linenum">30</span>    String message = Serial.<span class="kw-orange">readString</span>();
+<span class="linenum">31</span>    message.trim(); <span class="comment">// Remove new line characters</span>
+<span class="linenum">32</span>    
+<span class="linenum">33</span>    <span class="kw-teal">if</span>(message.length() > 0) {
+<span class="linenum">34</span>        Serial.<span class="kw-orange">print</span>(<span class="string">"Sending: "</span>);
+<span class="linenum">35</span>        Serial.<span class="kw-orange">println</span>(message);
+<span class="linenum">36</span>
+<span class="linenum">37</span>        <span class="comment">// Send LoRa packet</span>
+<span class="linenum">38</span>        LoRa.<span class="kw-orange">beginPacket</span>();
+<span class="linenum">39</span>        LoRa.<span class="kw-orange">print</span>(message);
+<span class="linenum">40</span>        LoRa.<span class="kw-orange">endPacket</span>();
+<span class="linenum">41</span>    }
+<span class="linenum">42</span>  }
+<span class="linenum">43</span>}</div>
+        </div>
+
+        <!-- Code 2: Receiver -->
+        <h2>Part 2: The Receiver Code</h2>
+        <p>Upload this code to the second board. It listens for incoming packets and prints the message along with the RSSI (Received Signal Strength Indicator).</p>
+
+        <div class="code-container">
+            <div class="code-header"><span>LoRa Receiver</span> <span>C++</span></div>
+            <div class="code-content">
+<span class="linenum">1</span><span class="kw-teal">#include</span> &lt;SPI.h&gt;
+<span class="linenum">2</span><span class="kw-teal">#include</span> &lt;LoRa.h&gt;
+<span class="linenum">3</span>
+<span class="linenum">4</span><span class="comment">// Define pins for ESP32</span>
+<span class="linenum">5</span><span class="preproc">#define</span> ss 5
+<span class="linenum">6</span><span class="preproc">#define</span> rst 14
+<span class="linenum">7</span><span class="preproc">#define</span> dio0 2
+<span class="linenum">8</span>
+<span class="linenum">9</span><span class="kw-teal">void</span> <span class="kw-orange">setup</span>() {
+<span class="linenum">10</span>  Serial.<span class="kw-orange">begin</span>(9600);
+<span class="linenum">11</span>  <span class="kw-teal">while</span> (!Serial);
+<span class="linenum">12</span>
+<span class="linenum">13</span>  Serial.<span class="kw-orange">println</span>(<span class="string">"LoRa Receiver"</span>);
+<span class="linenum">14</span>
+<span class="linenum">15</span>  <span class="comment">// --- ESP32 SPECIFIC SETUP ---</span>
+<span class="linenum">16</span>  <span class="comment">// Uncomment the next line if using ESP32!</span>
+<span class="linenum">17</span>  <span class="comment">// LoRa.setPins(ss, rst, dio0);</span>
+<span class="linenum">18</span>
+<span class="linenum">19</span>  <span class="kw-teal">if</span> (!LoRa.<span class="kw-orange">begin</span>(433E6)) {
+<span class="linenum">20</span>    Serial.<span class="kw-orange">println</span>(<span class="string">"Starting LoRa failed!"</span>);
+<span class="linenum">21</span>    <span class="kw-teal">while</span> (1);
+<span class="linenum">22</span>  }
+<span class="linenum">23</span>}
+<span class="linenum">24</span>
+<span class="linenum">25</span><span class="kw-teal">void</span> <span class="kw-orange">loop</span>() {
+<span class="linenum">26</span>  <span class="comment">// Try to parse packet</span>
+<span class="linenum">27</span>  <span class="kw-teal">int</span> packetSize = LoRa.<span class="kw-orange">parsePacket</span>();
+<span class="linenum">28</span>  
+<span class="linenum">29</span>  <span class="kw-teal">if</span> (packetSize) {
+<span class="linenum">30</span>    <span class="comment">// Received a packet</span>
+<span class="linenum">31</span>    Serial.<span class="kw-orange">print</span>(<span class="string">"Received: '"</span>);
+<span class="linenum">32</span>
+<span class="linenum">33</span>    <span class="comment">// Read packet</span>
+<span class="linenum">34</span>    <span class="kw-teal">while</span> (LoRa.<span class="kw-orange">available</span>()) {
+<span class="linenum">35</span>      Serial.<span class="kw-orange">print</span>((<span class="kw-teal">char</span>)LoRa.<span class="kw-orange">read</span>());
+<span class="linenum">36</span>    }
+<span class="linenum">37</span>
+<span class="linenum">38</span>    <span class="comment">// Print RSSI (Signal Strength)</span>
+<span class="linenum">39</span>    Serial.<span class="kw-orange">print</span>(<span class="string">"' | RSSI: "</span>);
+<span class="linenum">40</span>    Serial.<span class="kw-orange">println</span>(LoRa.<span class="kw-orange">packetRssi</span>());
+<span class="linenum">41</span>  }
+<span class="linenum">42</span>}</div>
+        </div>
+
+        <!-- Testing Section -->
+        <h2>Testing the LoRa System</h2>
+        <p>Now that both boards are programmed (one with the Transmitter code, one with the Receiver code), follow these steps to chat between them.</p>
+
+        <h3>1. Open Two Serial Monitors</h3>
+        <p>Since you have two devices connected to your computer, you need to view the serial output for both.</p>
+        <ol>
+            <li>Open the Arduino IDE.</li>
+            <li>Select the <strong>Transmitter Board</strong> Port and open the Serial Monitor.</li>
+            <li>Select the <strong>Receiver Board</strong> Port and open a <em>second</em> instance of the Serial Monitor (or use a separate terminal program like Putty or CoolTerm).</li>
+        </ol>
+
+        <div class="info-box">
+            <i class="fas fa-info-circle"></i>
+            <div>
+                <strong>Baud Rate:</strong> Make sure both Serial Monitors are set to <strong>9600 baud</strong>.
+            </div>
+        </div>
+
+        <h3>2. Send a Message</h3>
+        <ol>
+            <li>Go to the <strong>Transmitter's</strong> Serial Monitor.</li>
+            <li>Type "Hello World" in the input field at the top and press <strong>Enter</strong>.</li>
+            <li>The Transmitter window should say: <code>Sending: Hello World</code>.</li>
+        </ol>
+
+        <h3>3. Verify Reception</h3>
+        <p>Check the <strong>Receiver's</strong> Serial Monitor. If successful, you should see:</p>
+        <div style="background: #333; color: #fff; padding: 10px; font-family: monospace; border-radius: 4px;">
+            Received: 'Hello World' | RSSI: -65
+        </div>
+        <p>The RSSI value indicates signal strength. Values closer to 0 (e.g., -40) are strong, while values like -120 are weak.</p>
+
+        <h2>Wrapping Up</h2>
+        <p>You have successfully built a wireless text messenger using LoRa! This setup is the foundation for remote control systems, long-range sensor networks, and off-grid communication devices.</p>
+
+    </div>
+
+</body>
+</html>

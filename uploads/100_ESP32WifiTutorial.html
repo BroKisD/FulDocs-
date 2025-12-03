@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32: Wi-Fi & Web Server</title>
+    
+    <!-- Import Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <!-- Import FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <style>
+        /* --- General Page Styles --- */
+        body {
+            font-family: 'Roboto', sans-serif;
+            color: #333333; 
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background-color: #ceedf6; /* Light Blue Background */
+        }
+
+        .container {
+            max-width: 850px;
+            margin: 40px auto;
+            background: white;
+            padding: 40px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            border-radius: 8px;
+        }
+
+        /* --- Header Styling --- */
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 5px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            font-size: 1.2em;
+            margin-top: 0;
+            margin-bottom: 20px;
+        }
+
+        .divider {
+            border: 0;
+            height: 1px;
+            background: #ddd;
+            margin: 20px 0;
+        }
+
+        /* --- Metadata Box --- */
+        .metadata-box {
+            background-color: #f9f9f9;
+            padding: 15px;
+            text-align: center;
+            border-radius: 4px;
+            margin-bottom: 30px;
+            font-size: 0.95em;
+            border: 1px solid #eee;
+        }
+
+        .meta-label {
+            color: #00196e; /* Deep Navy Blue */
+            font-weight: bold;
+        }
+
+        /* --- Section Headers --- */
+        h2 {
+            color: #00196e; /* Deep Navy Blue */
+            font-size: 1.8em;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 10px;
+        }
+
+        h3 {
+            color: #333;
+            margin-top: 25px;
+        }
+
+        /* --- Lists --- */
+        ul, ol {
+            margin-bottom: 20px;
+        }
+        li {
+            margin-bottom: 10px;
+        }
+
+        /* --- Info/Warning Box --- */
+        .info-box {
+            background-color: #fff3cd;
+            border: 1px solid #ffeeba;
+            border-left: 5px solid #ffa000;
+            color: #856404;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+            display: flex;
+            align-items: flex-start;
+            gap: 15px;
+        }
+
+        .info-box i {
+            font-size: 1.4em;
+            color: #ffa000;
+            margin-top: 3px;
+        }
+
+        /* --- Code Block Styling --- */
+        .code-container {
+            background-color: #F7F7F7;
+            border: 1px solid #e1e1e1;
+            border-radius: 5px;
+            margin: 20px 0;
+            overflow: hidden;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        .code-header {
+            background-color: #eee;
+            padding: 8px 15px;
+            font-weight: bold;
+            font-size: 0.9em;
+            border-bottom: 1px solid #ddd;
+            color: #555;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .code-content {
+            padding: 15px;
+            overflow-x: auto;
+            white-space: pre;
+            font-size: 0.9em;
+            line-height: 1.5;
+        }
+
+        /* Syntax Highlighting Colors */
+        .kw-teal { color: #00979C; font-weight: bold; }   
+        .kw-orange { color: #D35400; font-weight: bold; } 
+        .kw-blue { color: #005C5F; }                      
+        .comment { color: #888888; font-style: italic; }  
+        .string { color: #005C5F; }
+        .linenum { color: #ccc; margin-right: 15px; user-select: none; }
+
+        /* --- Links --- */
+        a {
+            color: #00196e; /* Deep Navy Blue */
+            text-decoration: none;
+            font-weight: bold;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+
+        /* --- Responsive --- */
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+                margin: 0;
+                border-radius: 0;
+            }
+            h1 { font-size: 2em; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- Title Section -->
+        <h1>ESP32: Wi-Fi & Web Server</h1>
+        <p class="subtitle">Control an LED from your web browser</p>
+
+        <!-- Metadata Section (Based on your image) -->
+        <div class="metadata-box">
+            <span class="meta-label">Category:</span> IoT, Web, Embedded - Signal - System &nbsp;|&nbsp; 
+            <span class="meta-label">Level:</span> 100 - Introductory
+        </div>
+
+        <hr class="divider">
+
+        <p><strong>Ready to build your first IoT device?</strong> In this tutorial, we will first learn how to connect the ESP32 to a Wi-Fi network. Then, we will create a simple web server that allows you to turn the built-in LED on and off from your smartphone or computer.</p>
+
+        <!-- Prerequisites -->
+        <h2>Prerequisites</h2>
+        <p>Before proceeding, make sure you have the following:</p>
+        <ul>
+            <li><i class="fas fa-check-circle" style="color:#00196e"></i> <strong>ESP32 Development Board</strong> (e.g., ESP32-S3 or DevKit V1)</li>
+            <li><i class="fas fa-check-circle" style="color:#00196e"></i> <strong>USB-C Cable</strong> (Ensure it supports data transfer, not just charging)</li>
+            <li><i class="fas fa-check-circle" style="color:#00196e"></i> <strong>Arduino IDE</strong> installed and configured for ESP32.</li>
+        </ul>
+
+        <!-- PART 1 -->
+        <h2>Part 1: Connecting to Wi-Fi</h2>
+        <p>First, let's establish a basic connection. We will use the <code>WiFi.h</code> library to connect to your router and print the IP address assigned to the board.</p>
+
+        <div class="info-box">
+            <i class="fas fa-exclamation-triangle"></i>
+            <div>
+                <strong>Important:</strong> The ESP32 only supports <strong>2.4GHz</strong> Wi-Fi networks. It will not see 5GHz networks.
+            </div>
+        </div>
+
+        <p>Copy the code below into your Arduino IDE. Update the <code>ssid</code> and <code>password</code> variables.</p>
+
+        <!-- CODE BLOCK 1 -->
+        <div class="code-container">
+            <div class="code-header"><span>Example 1: Basic Wi-Fi Connection</span> <span>C++</span></div>
+            <div class="code-content">
+<span class="linenum">1</span><span class="kw-teal">#include</span> &lt;WiFi.h&gt;
+<span class="linenum">2</span>
+<span class="linenum">3</span><span class="comment">// Replace with your network credentials</span>
+<span class="linenum">4</span><span class="kw-teal">const</span> <span class="kw-teal">char</span>* ssid = <span class="string">"YOUR_WIFI_NAME"</span>;
+<span class="linenum">5</span><span class="kw-teal">const</span> <span class="kw-teal">char</span>* password = <span class="string">"YOUR_WIFI_PASSWORD"</span>;
+<span class="linenum">6</span>
+<span class="linenum">7</span><span class="kw-teal">void</span> <span class="kw-orange">setup</span>() {
+<span class="linenum">8</span>  <span class="comment">// Start Serial Monitor</span>
+<span class="linenum">9</span>  Serial.<span class="kw-orange">begin</span>(115200);
+<span class="linenum">10</span>
+<span class="linenum">11</span> <span class="comment">// Start Wi-Fi</span>
+<span class="linenum">12</span> WiFi.<span class="kw-orange">begin</span>(ssid, password);
+<span class="linenum">13</span> Serial.<span class="kw-orange">print</span>(<span class="string">"Connecting"</span>);
+<span class="linenum">14</span>
+<span class="linenum">15</span> <span class="comment">// Wait for connection</span>
+<span class="linenum">16</span> <span class="kw-teal">while</span> (WiFi.<span class="kw-orange">status</span>() != <span class="kw-blue">WL_CONNECTED</span>) {
+<span class="linenum">17</span>   <span class="kw-orange">delay</span>(500);
+<span class="linenum">18</span>   Serial.<span class="kw-orange">print</span>(<span class="string">"."</span>);
+<span class="linenum">19</span> }
+<span class="linenum">20</span>
+<span class="linenum">21</span> <span class="comment">// Success! Print IP Address</span>
+<span class="linenum">22</span> Serial.<span class="kw-orange">println</span>(<span class="string">""</span>);
+<span class="linenum">23</span> Serial.<span class="kw-orange">print</span>(<span class="string">"Connected! IP Address: "</span>);
+<span class="linenum">24</span> Serial.<span class="kw-orange">println</span>(WiFi.<span class="kw-orange">localIP</span>());
+<span class="linenum">25</span>}
+<span class="linenum">26</span>
+<span class="linenum">27</span><span class="kw-teal">void</span> <span class="kw-orange">loop</span>() {
+<span class="linenum">28</span>  <span class="comment">// Nothing here yet</span>
+<span class="linenum">29</span>}</div>
+        </div>
+ <!-- Testing -->
+        <h2>Testing the Connection</h2>
+        <p>Once you have uploaded the code to your ESP32, follow these steps to verify the connection:</p>
+        <ol>
+            <li>Open the <strong>Serial Monitor</strong> (Tools &rarr; Serial Monitor) or press <code>Ctrl+Shift+M</code>.</li>
+            <li><strong>Important:</strong> Change the baud rate in the bottom right corner to <strong>115200 baud</strong>. If this is wrong, you will see gibberish text.</li>
+            <li>Press the <strong>EN</strong> (Enable/Reset) button on your ESP32 board.</li>
+            <li>You should see dots printing <code>.......</code> followed by "Wi-Fi Connected!" and an IP Address (e.g., <code>192.168.1.45</code>).</li>
+        </ol>
+
+        <!-- Troubleshooting Box -->
+        <div class="info-box" style="background-color: #e3f2fd; border-color: #bbdefb; border-left-color: #00196e; color: #0d47a1;">
+            <i class="fas fa-info-circle" style="color: #00196e;"></i>
+            <div>
+                <strong>Troubleshooting:</strong> If the dots keep printing forever, check that your SSID and Password are correct (case sensitive!) and that you are within range of your router.
+            </div>
+        </div>
+        <!-- PART 2 -->
+        <h2>Part 2: Creating the Web Server</h2>
+        <p>Now that we have a connection, let's make it interactive. We will create a web server that hosts two buttons: <strong>ON</strong> and <strong>OFF</strong>.</p>
+        
+        <p>This code performs the following:</p>
+        <ol>
+            <li>Sets up the <code>WebServer</code> on port 80.</li>
+            <li>Serves an HTML page when you visit the IP address.</li>
+            <li>Reads the URL commands (<code>/on</code> or <code>/off</code>) to control the LED.</li>
+            <li>Prints the status to the Serial Monitor.</li>
+        </ol>
+
+        <!-- CODE BLOCK 2 -->
+        <div class="code-container">
+            <div class="code-header"><span>Example 2: Web Server LED Control</span> <span>C++</span></div>
+            <div class="code-content">
+<span class="linenum">1</span><span class="kw-teal">#include</span> &lt;WiFi.h&gt;
+<span class="linenum">2</span><span class="kw-teal">#include</span> &lt;WebServer.h&gt;
+<span class="linenum">3</span>
+<span class="linenum">4</span><span class="comment">// Network Credentials</span>
+<span class="linenum">5</span><span class="kw-teal">const</span> <span class="kw-teal">char</span>* ssid = <span class="string">"YOUR_WIFI_NAME"</span>;
+<span class="linenum">6</span><span class="kw-teal">const</span> <span class="kw-teal">char</span>* password = <span class="string">"YOUR_WIFI_PASSWORD"</span>;
+<span class="linenum">7</span>
+<span class="linenum">8</span><span class="comment">// Initialize WebServer on port 80</span>
+<span class="linenum">9</span>WebServer server(80);
+<span class="linenum">10</span>
+<span class="linenum">11</span><span class="comment">// HTML Code to display in the browser</span>
+<span class="linenum">12</span>String html_page = <span class="string">"&lt;!DOCTYPE html&gt;&lt;html&gt;&lt;body&gt;"</span>
+<span class="linenum">13</span>                   <span class="string">"&lt;h1&gt;ESP32 LED Control&lt;/h1&gt;"</span>
+<span class="linenum">14</span>                   <span class="string">"&lt;p&gt;&lt;a href=\"/on\"&gt;&lt;button&gt;TURN ON&lt;/button&gt;&lt;/a&gt;&lt;/p&gt;"</span>
+<span class="linenum">15</span>                   <span class="string">"&lt;p&gt;&lt;a href=\"/off\"&gt;&lt;button&gt;TURN OFF&lt;/button&gt;&lt;/a&gt;&lt;/p&gt;"</span>
+<span class="linenum">16</span>                   <span class="string">"&lt;/body&gt;&lt;/html&gt;"</span>;
+<span class="linenum">17</span>
+<span class="linenum">18</span><span class="kw-teal">void</span> <span class="kw-orange">setup</span>() {
+<span class="linenum">19</span>  Serial.<span class="kw-orange">begin</span>(115200);
+<span class="linenum">20</span>  <span class="kw-orange">pinMode</span>(<span class="kw-blue">LED_BUILTIN</span>, <span class="kw-blue">OUTPUT</span>);
+<span class="linenum">21</span>
+<span class="linenum">22</span>  <span class="comment">// Connect to Wi-Fi</span>
+<span class="linenum">23</span>  WiFi.<span class="kw-orange">begin</span>(ssid, password);
+<span class="linenum">24</span>  <span class="kw-teal">while</span> (WiFi.<span class="kw-orange">status</span>() != <span class="kw-blue">WL_CONNECTED</span>) {
+<span class="linenum">25</span>    <span class="kw-orange">delay</span>(500); Serial.<span class="kw-orange">print</span>(<span class="string">"."</span>);
+<span class="linenum">26</span>  }
+<span class="linenum">27</span>  Serial.<span class="kw-orange">println</span>(<span class="string">""</span>);
+<span class="linenum">28</span>  Serial.<span class="kw-orange">print</span>(<span class="string">"Server IP: "</span>);
+<span class="linenum">29</span>  Serial.<span class="kw-orange">println</span>(WiFi.<span class="kw-orange">localIP</span>());
+<span class="linenum">30</span>
+<span class="linenum">31</span>  <span class="comment">// --- Define Server Routes ---</span>
+<span class="linenum">32</span>
+<span class="linenum">33</span>  <span class="comment">// 1. Root URL (/) displays the buttons</span>
+<span class="linenum">34</span>  server.<span class="kw-orange">on</span>(<span class="string">"/"</span>, []() {
+<span class="linenum">35</span>    server.<span class="kw-orange">send</span>(200, <span class="string">"text/html"</span>, html_page);
+<span class="linenum">36</span>  });
+<span class="linenum">37</span>
+<span class="linenum">38</span>  <span class="comment">// 2. URL (/on) turns LED HIGH</span>
+<span class="linenum">39</span>  server.<span class="kw-orange">on</span>(<span class="string">"/on"</span>, []() {
+<span class="linenum">40</span>    <span class="kw-orange">digitalWrite</span>(<span class="kw-blue">LED_BUILTIN</span>, <span class="kw-blue">HIGH</span>);
+<span class="linenum">41</span>    Serial.<span class="kw-orange">println</span>(<span class="string">"Status: LED turned ON"</span>);
+<span class="linenum">42</span>    server.<span class="kw-orange">send</span>(200, <span class="string">"text/html"</span>, html_page); <span class="comment">// Reload page</span>
+<span class="linenum">43</span>  });
+<span class="linenum">44</span>
+<span class="linenum">45</span>  <span class="comment">// 3. URL (/off) turns LED LOW</span>
+<span class="linenum">46</span>  server.<span class="kw-orange">on</span>(<span class="string">"/off"</span>, []() {
+<span class="linenum">47</span>    <span class="kw-orange">digitalWrite</span>(<span class="kw-blue">LED_BUILTIN</span>, <span class="kw-blue">LOW</span>);
+<span class="linenum">48</span>    Serial.<span class="kw-orange">println</span>(<span class="string">"Status: LED turned OFF"</span>);
+<span class="linenum">49</span>    server.<span class="kw-orange">send</span>(200, <span class="string">"text/html"</span>, html_page); <span class="comment">// Reload page</span>
+<span class="linenum">50</span>  });
+<span class="linenum">51</span>
+<span class="linenum">52</span>  <span class="comment">// Start the server</span>
+<span class="linenum">53</span>  server.<span class="kw-orange">begin</span>();
+<span class="linenum">54</span>}
+<span class="linenum">55</span>
+<span class="linenum">56</span><span class="kw-teal">void</span> <span class="kw-orange">loop</span>() {
+<span class="linenum">57</span>  <span class="comment">// Listen for incoming clients</span>
+<span class="linenum">58</span>  server.<span class="kw-orange">handleClient</span>();
+<span class="linenum">59</span>}</div>
+        </div>
+
+        <h2>Testing the Web Server</h2>
+        <ol>
+            <li>Upload the code (Example 2) to your ESP32.</li>
+            <li>Open the <strong>Serial Monitor</strong> to find the IP Address (e.g., <code>192.168.1.105</code>).</li>
+            <li>Open a web browser on your computer or phone (must be on the same Wi-Fi).</li>
+            <li>Type the IP address into the address bar.</li>
+            <li>Click the buttons on the web page.</li>
+        </ol>
+
+        <p><strong>Success!</strong> You should see the blue LED on your board toggle on and off, and the Serial Monitor should print:</p>
+        <div style="background: #333; color: #fff; padding: 10px; font-family: monospace; border-radius: 4px;">
+            Server IP: 192.168.1.105<br>
+            Status: LED turned ON<br>
+            Status: LED turned OFF
+        </div>
+
+        <h2>Wrapping Up</h2>
+        <p>You have successfully created a web server on an embedded device! This is the foundation of many IoT projects, such as home automation switches or remote sensor monitoring.</p>
+    </div>
+
+</body>
+</html>
