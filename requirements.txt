@@ -24,6 +24,6 @@ debugpy==1.8.0  # For Python 3.12 debugging
 gunicorn==21.2.0  # Uncomment for production deployment
 
 #database
-pymongo[srv]==3.12
+redis
 # Python version
 # Requires Python 3.12 or higher
