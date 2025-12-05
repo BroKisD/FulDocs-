@@ -8,17 +8,25 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     :root {
-      --primary-color: #4F46E5;
-      --primary-hover: #4338CA;
-      --secondary-color: #64748B;
-      --success-color: #10B981;
-      --warning-color: #F59E0B;
-      --danger-color: #EF4444;
-      --bg-color: #F8FAFC;
-      --card-bg: #FFFFFF;
-      --border-color: #E2E8F0;
-      --text-primary: #0F172A;
-      --text-secondary: #64748B;
+      /* --- Brand Colors --- */
+      --primary-color: #002169;       /* Fulbright Blue */
+      --primary-hover: #001a57;       /* Darker Blue */
+      --secondary-color: #FFB81C;     /* Fulbright Gold */
+      --secondary-hover: #e6a61a;     /* Darker Gold */
+      
+      /* --- Neutrals --- */
+      --bg-color: #F4F6F8;           /* Light Grey */
+      --card-bg: #FFFFFF;            /* White */
+      --border-color: #E2E8F0;       /* Light Grey Border */
+      --text-primary: #0F172A;       /* Dark Grey */
+      --text-secondary: #4A5568;     /* Slate Grey */
+      --text-muted: #A0AEC0;         /* Cool Grey */
+      
+      /* --- Functional --- */
+      --success-color: #28A745;      /* Green */
+      --warning-color: #F57C00;      /* Orange */
+      --danger-color: #DC3545;       /* Red */
+      --link-color: #007AFF;         /* Sky Blue */
     }
 
     * {
@@ -36,9 +44,23 @@
 
     /* Navbar Styling */
     .navbar {
-      background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
+      background: var(--primary-color);
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-      padding: 0.75rem 0;
+      padding: 0.5rem 0;
+    }
+    
+    .navbar-brand {
+      font-weight: 600;
+      font-size: 1.5rem;
+      color: white !important;
+    }
+    
+    .navbar-brand img {
+      transition: transform 0.3s ease;
+    }
+    
+    .navbar-brand:hover img {
+      transform: scale(1.05);
     }
 
     .navbar-brand {
@@ -131,19 +153,18 @@
     }
 
     .btn-primary {
-      background: var(--primary-color);
-      color: white;
+      background-color: var(--primary-color);
+      border-color: var(--primary-color);
     }
-
+    
     .btn-primary:hover {
-      background: var(--primary-hover);
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+      background-color: var(--primary-hover);
+      border-color: var(--primary-hover);
     }
-
+    
     .btn-outline-primary {
-      border: 2px solid var(--primary-color);
       color: var(--primary-color);
+      border-color: var(--primary-color);
       background: transparent;
     }
 
@@ -342,8 +363,9 @@
 <body>
   <nav class="navbar navbar-expand-lg navbar-dark">
     <div class="container-fluid">
-      <a class="navbar-brand" href="{{ url_for('feed') }}">
-        <i class="fas fa-graduation-cap me-2"></i>FulDocs
+      <a class="navbar-brand d-flex align-items-center" href="{{ url_for('feed') }}">
+        <img src="{{ url_for('static', filename='Fulbright_University_Seal.png') }}" alt="Fulbright University Logo" height="40" class="me-2">
+        <span>FulDocs</span>
       </a>
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent">
         <span class="navbar-toggler-icon"></span>

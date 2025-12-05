@@ -113,8 +113,19 @@
 
 <style>
   body {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: #ffffff;
     min-height: 100vh;
+  }
+  
+  .card {
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  }
+  
+  .form-control:focus {
+    box-shadow: 0 0 0 3px rgba(0, 33, 105, 0.2);
+    border-color: var(--primary-color);
   }
   
   .card {

@@ -1275,7 +1275,7 @@ def bookmarks():
 
 @app.route('/admin')
 def admin():
-    if 'user_id' not in session or session.get('role') not in ('Admin', 'Professor'):
+    if 'user_id' not in session or session.get('role', '').lower() not in ('admin', 'professor'):
         return redirect(url_for('feed'))
     
     conn = get_db_connection()
@@ -1331,7 +1331,7 @@ def unverify(doc_id: int):
 
 @app.route('/admin/delete_document/<int:doc_id>', methods=['POST'])
 def delete_document(doc_id: int):
-    if 'user_id' not in session or session.get('role') != 'Admin':
+    if 'user_id' not in session or session.get('role', '').lower() != 'admin':
         return jsonify({'success': False, 'error': 'Unauthorized'}), 403
     
     try:
@@ -1366,9 +1366,29 @@ def delete_document(doc_id: int):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/admin/close_question/<int:question_id>', methods=['POST'])
+def close_question(question_id: int):
+    if 'user_id' not in session or session.get('role', '').lower() != 'admin':
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+    
+    try:
+        conn = get_db_connection()
+        conn.execute('UPDATE Questions SET status = ? WHERE id = ?', 
+                   ('Closed', question_id))
+        conn.commit()
+        conn.close()
+        return jsonify({'success': True, 'status': 'Closed'})
+    except Exception as e:
+        if 'conn' in locals():
+            conn.rollback()
+            conn.close()
+        app.logger.error(f'Error closing question: {str(e)}')
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/admin/delete_question/<int:question_id>', methods=['POST'])
 def delete_question(question_id: int):
-    if 'user_id' not in session or session.get('role') != 'Admin':
+    if 'user_id' not in session or session.get('role', '').lower() != 'admin':
         return jsonify({'success': False, 'error': 'Unauthorized'}), 403
     
     try:

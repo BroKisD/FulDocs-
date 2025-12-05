@@ -10,9 +10,16 @@
       <div class="card-body">
         <div class="d-flex justify-content-between align-items-start mb-3">
           <h2 class="mb-0">{{ question['title'] }}</h2>
-          <span class="badge bg-{{ 'success' if question['status'] == 'Verified' else 'warning' }}">
-            {{ question['status'] }}
-          </span>
+          <div class="d-flex align-items-center">
+            <span class="badge bg-{{ 'success' if question['status'] == 'Verified' else 'danger' if question['status'] == 'Closed' else 'warning' }}">
+              {{ question['status'] }}
+            </span>
+            {% if session.get('role', '').lower() == 'admin' and question['status'] != 'Closed' %}
+            <button class="btn btn-sm btn-outline-danger ms-2" id="closeQuestionBtn">
+              <i class="fas fa-lock me-1"></i>Close Question
+            </button>
+            {% endif %}
+          </div>
         </div>
         
         <div class="mb-3">
@@ -212,6 +219,41 @@
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/star.js') }}"></script>
 <script>
+  // Close question functionality
+  const closeQuestionBtn = document.getElementById('closeQuestionBtn');
+  if (closeQuestionBtn) {
+    closeQuestionBtn.addEventListener('click', async function() {
+      if (confirm('Are you sure you want to close this question? This action cannot be undone.')) {
+        try {
+          const response = await fetch(`/admin/close_question/{{ question['id'] }}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          const result = await response.json();
+          if (result.success) {
+            // Update the UI
+            const statusBadge = document.querySelector('.badge');
+            statusBadge.textContent = 'Closed';
+            statusBadge.className = 'badge bg-danger';
+            closeQuestionBtn.remove();
+            
+            // Show success message
+            alert('Question has been closed successfully.');
+          } else {
+            alert('Failed to close question: ' + (result.error || 'Unknown error'));
+          }
+        } catch (error) {
+          console.error('Error closing question:', error);
+          alert('An error occurred while closing the question');
+        }
+      }
+    });
+  }
+
+  // Accept answer functionality
   // Accept answer functionality
   document.querySelectorAll('.accept-btn').forEach(btn => {
     btn.addEventListener('click', async function() {
