@@ -156,14 +156,67 @@
   {% endif %}
   
   <div class="document-content">
-    {% if document['file_path'] and document['file_path'].endswith(('.pdf', '.jpg', '.jpeg', '.png', '.gif')) %}
-      {% if document['file_path'].endswith('.pdf') %}
-        <iframe src="{{ url_for('uploaded_file', filename=document['file_path']) }}" 
-                style="width: 100%; height: 80vh; border: none;"></iframe>
+    {% if document['file_path'] %}
+      {% if document['file_path'].endswith(('.pdf', '.jpg', '.jpeg', '.png', '.gif', '.html', '.htm')) %}
+        <div class="preview-container mb-4">
+          {% if document['file_path'].endswith('.pdf') %}
+            <div class="ratio ratio-16x9">
+              <iframe src="{{ url_for('uploaded_file', filename=document['file_path']) }}" 
+                      style="width: 100%; height: 100%; border: 1px solid #dee2e6; border-radius: 0.25rem;"></iframe>
+            </div>
+          {% elif document['file_path'].endswith(('.html', '.htm')) %}
+            <div id="html-preview-container" class="border rounded p-3" style="min-height: 400px; background: white; position: relative;">
+              <div class="text-center py-5" id="html-loading">
+                <div class="spinner-border text-primary" role="status">
+                  <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2">Loading HTML preview...</p>
+                <div id="preview-status" class="small text-muted mt-2"></div>
+              </div>
+              <div id="preview-error" class="alert alert-danger d-none"></div>
+              <div class="ratio ratio-16x9">
+                <iframe id="html-preview-frame" 
+                        sandbox="allow-same-origin allow-scripts allow-forms"
+                        referrerpolicy="no-referrer"
+                        src="{{ url_for('uploaded_file', filename=document['file_path']) }}" 
+                        style="border: 1px solid #dee2e6; border-radius: 0.25rem; background: white;"
+                        onload="document.getElementById('html-loading').style.display = 'none'; this.style.display = 'block'; document.getElementById('preview-status').textContent = 'Preview loaded successfully';"
+                        onerror="document.getElementById('html-loading').style.display = 'none'; document.getElementById('preview-error').textContent = 'Error loading preview. Please try downloading the file.'; document.getElementById('preview-error').classList.remove('d-none');">
+                  <p>Your browser does not support iframes. Please <a href="{{ url_for('uploaded_file', filename=document['file_path']) }}" download>download the file</a> to view it.</p>
+                </iframe>
+              </div>
+            </div>
+          {% else %}
+            <img src="{{ url_for('uploaded_file', filename=document['file_path']) }}" 
+                 alt="{{ document['title'] }}" 
+                 class="img-fluid rounded d-block mx-auto" 
+                 style="max-height: 80vh; object-fit: contain;">
+          {% endif %}
+        </div>
+        <div class="text-center mb-4">
+          <a href="{{ url_for('uploaded_file', filename=document['file_path']) }}" 
+             class="btn btn-primary" 
+             download>
+            <i class="fas fa-download me-2"></i>Download Document
+          </a>
+          {% if document['file_path'].endswith(('.html', '.htm')) %}
+            <button id="fullscreen-html" class="btn btn-outline-secondary ms-2">
+              <i class="fas fa-expand me-1"></i> Fullscreen
+            </button>
+          {% endif %}
+        </div>
       {% else %}
-        <img src="{{ url_for('uploaded_file', filename=document['file_path']) }}" 
-             alt="{{ document['title'] }}" 
-             class="img-fluid rounded">
+        <div class="alert alert-info">
+          <i class="fas fa-info-circle me-2"></i>
+          This document format cannot be previewed. Please download it to view the content.
+        </div>
+        <div class="text-center">
+          <a href="{{ url_for('uploaded_file', filename=document['file_path']) }}" 
+             class="btn btn-primary" 
+             download>
+            <i class="fas fa-download me-2"></i>Download Document
+          </a>
+        </div>
       {% endif %}
     {% else %}
       <div class="content">
@@ -177,4 +230,100 @@
 {% block scripts %}
 {{ super() }}
 <script src="{{ url_for('static', filename='js/star.js') }}"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Handle HTML preview loading
+    const htmlPreviewFrame = document.getElementById('html-preview-frame');
+    const htmlLoading = document.getElementById('html-loading');
+    const fullscreenBtn = document.getElementById('fullscreen-html');
+    const statusDiv = document.getElementById('preview-status');
+    const errorDiv = document.getElementById('preview-error');
+    
+    if (htmlPreviewFrame) {
+      // Log the iframe source for debugging
+      if (statusDiv) {
+        statusDiv.textContent = 'Loading: ' + htmlPreviewFrame.src;
+      }
+      
+      htmlPreviewFrame.onload = function() {
+        console.log('HTML preview loaded successfully');
+        if (htmlLoading) htmlLoading.style.display = 'none';
+        if (htmlPreviewFrame) htmlPreviewFrame.style.display = 'block';
+        if (statusDiv) statusDiv.textContent = 'Preview loaded successfully';
+      };
+      
+      // Add error handling
+      htmlPreviewFrame.onerror = function() {
+        console.error('Error loading HTML preview');
+        if (errorDiv) {
+          errorDiv.textContent = 'Error loading HTML preview. The file might not be accessible.';
+          errorDiv.classList.remove('d-none');
+        }
+        if (statusDiv) {
+          statusDiv.textContent = 'Error loading: ' + htmlPreviewFrame.src;
+        }
+        if (htmlLoading) htmlLoading.style.display = 'none';
+      };
+      
+      // Add a timeout to handle cases where the iframe fails silently
+      setTimeout(() => {
+        if (htmlLoading && htmlLoading.style.display !== 'none' && 
+            (!htmlPreviewFrame.contentDocument || !htmlPreviewFrame.contentDocument.body || 
+             htmlPreviewFrame.contentDocument.body.children.length === 0)) {
+          console.warn('HTML preview loading timed out');
+          if (errorDiv) {
+            errorDiv.textContent = 'Preview loading timed out. The file might be too large or contain errors.';
+            errorDiv.classList.remove('d-none');
+          }
+          if (statusDiv) {
+            statusDiv.textContent = 'Loading timed out: ' + htmlPreviewFrame.src;
+          }
+          htmlLoading.style.display = 'none';
+        }
+      }, 10000); // 10 second timeout
+    }
+    
+    // Handle fullscreen mode for HTML preview
+    if (fullscreenBtn) {
+      fullscreenBtn.addEventListener('click', function() {
+        const container = document.getElementById('html-preview-container');
+        if (!document.fullscreenElement) {
+          if (container.requestFullscreen) {
+            container.requestFullscreen();
+          } else if (container.webkitRequestFullscreen) { /* Safari */
+            container.webkitRequestFullscreen();
+          } else if (container.msRequestFullscreen) { /* IE11 */
+            container.msRequestFullscreen();
+          }
+          fullscreenBtn.innerHTML = '<i class="fas fa-compress me-1"></i> Exit Fullscreen';
+        } else {
+          if (document.exitFullscreen) {
+            document.exitFullscreen();
+          } else if (document.webkitExitFullscreen) { /* Safari */
+            document.webkitExitFullscreen();
+          } else if (document.msExitFullscreen) { /* IE11 */
+            document.msExitFullscreen();
+          }
+          fullscreenBtn.innerHTML = '<i class="fas fa-expand me-1"></i> Fullscreen';
+        }
+      });
+    }
+    
+    // Handle fullscreen change events
+    document.addEventListener('fullscreenchange', updateFullscreenButton);
+    document.addEventListener('webkitfullscreenchange', updateFullscreenButton);
+    document.addEventListener('mozfullscreenchange', updateFullscreenButton);
+    document.addEventListener('MSFullscreenChange', updateFullscreenButton);
+    
+    function updateFullscreenButton() {
+      if (fullscreenBtn) {
+        if (document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement) {
+          fullscreenBtn.innerHTML = '<i class="fas fa-compress me-1"></i> Exit Fullscreen';
+        } else {
+          fullscreenBtn.innerHTML = '<i class="fas fa-expand me-1"></i> Fullscreen';
+        }
+      }
+    }
+  });
+</script>
 {% endblock %}

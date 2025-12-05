@@ -16,15 +16,45 @@ import json
 import sqlite3
 from datetime import datetime
 from flask import (Flask, render_template, request, redirect,
-                   url_for, session, send_from_directory, flash, jsonify, abort)
+                   url_for, session, send_from_directory, flash, jsonify, abort, g)
 from werkzeug.utils import secure_filename
 import os
 from db_utils import get_db_connection
 from gemini_chat import get_chat_response
+# Import analytics with error handling
+try:
+    from analytics import analytics, init_analytics
+except ImportError as e:
+    print(f"Warning: Analytics module not available: {e}")
+    analytics = None
+    
+    def init_analytics(app):
+        pass  # No-op if analytics is not available
 
 
 app = Flask(__name__)
-app.secret_key = 'replace_with_a_random_secret_key'
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'dev-key-change-in-production')
+
+# Initialize analytics
+init_analytics(app)
+
+# Add datetimeformat filter
+def datetimeformat(value, format='%Y-%m-%d %H:%M:%S'):
+    if value is None:
+        return ''
+    if isinstance(value, str):
+        # Try to parse the string into a datetime object
+        try:
+            if 'T' in value:  # ISO format
+                value = datetime.fromisoformat(value.replace('Z', '+00:00'))
+            else:  # Try other formats if needed
+                value = datetime.strptime(value, '%Y-%m-%d %H:%M:%S')
+        except (ValueError, TypeError):
+            return value
+    return value.strftime(format)
+
+# Add the filter to the Jinja2 environment
+app.jinja_env.filters['datetimeformat'] = datetimeformat
 
 DATABASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'database.db')
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
@@ -35,6 +65,23 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
 # Database connection is now imported from db_utils
 
+
+def hash_password(password):
+    # In a real application, use a proper password hashing library like bcrypt or Argon2
+    # This is a simplified example and should not be used in production
+    import hashlib
+    import os
+    salt = os.urandom(16)
+    pwd_hash = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, 100000)
+    return salt.hex() + pwd_hash.hex()
+
+def verify_password(stored_password, provided_password):
+    # Verify the provided password against the stored hash
+    import hashlib
+    salt = bytes.fromhex(stored_password[:32])  # First 32 chars are salt
+    stored_hash = stored_password[32:]  # Rest is the hash
+    pwd_hash = hashlib.pbkdf2_hmac('sha256', provided_password.encode('utf-8'), salt, 100000)
+    return pwd_hash.hex() == stored_hash
 
 def init_db():
     conn = None
@@ -71,6 +118,10 @@ def init_db():
             cursor.execute('ALTER TABLE Users ADD COLUMN first_login INTEGER DEFAULT 1')
             # Set first_login to 0 for existing users
             cursor.execute('UPDATE Users SET first_login = 0 WHERE first_login IS NULL')
+        if 'password' not in existing_cols:
+            cursor.execute('ALTER TABLE Users ADD COLUMN password TEXT')
+            # Set a default password for existing users (they'll need to reset it)
+            cursor.execute("UPDATE Users SET password = ? WHERE password IS NULL", (hash_password('changeme123'),))
             
         # Create Documents table
         cursor.execute('''
@@ -280,15 +331,27 @@ def init_db():
         # Seed users
         existing_users = cursor.execute('SELECT COUNT(*) AS count FROM Users').fetchone()['count']
         if existing_users == 0:
+            # Hash the default password once
+            hashed_password = hash_password('77777777')
+            
             users = [
-                ('admin@university.edu', 'Admin', 'Admin User', 'Platform administrator'),
-                ('professor@university.edu', 'Professor', 'Prof. Quan Le', 'HCE Professor'),
-                ('student@university.edu', 'Student', 'Student', 'HCE student'),
+                ('admin@university.edu', 'Admin', 'Admin User', 'Platform administrator', hashed_password),
+                ('professor@university.edu', 'Professor', 'Prof. Quan Le', 'HCE Professor', hashed_password),
+                ('student@university.edu', 'Student', 'Student', 'HCE student', hashed_password),
+                ('khoa@university.edu', 'Student', 'Khoa Phan', 'HCE student', hashed_password),
+                ('an@university.edu', 'Student', 'An Nguyen', 'HCE student', hashed_password)
             ]
-            for email, role, name, bio in users:
+            
+            # Check if password column exists, add if not
+            cursor.execute("PRAGMA table_info(Users)")
+            columns = [column[1] for column in cursor.fetchall()]
+            if 'password' not in columns:
+                cursor.execute('ALTER TABLE Users ADD COLUMN password TEXT')
+            
+            for email, role, name, bio, pwd in users:
                 cursor.execute(
-                    'INSERT INTO Users (email, role, name, bio) VALUES (?, ?, ?, ?)',
-                    (email, role, name, bio))
+                    'INSERT INTO Users (email, role, name, bio, password) VALUES (?, ?, ?, ?, ?)',
+                    (email, role, name, bio, pwd))
 
         # Seed sample documents
         existing_docs = cursor.execute('SELECT COUNT(*) AS count FROM Documents').fetchone()['count']
@@ -355,40 +418,118 @@ def index():
     return redirect(url_for('login'))
 
 
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    error = None
+@app.route('/signup', methods=['GET', 'POST'])
+def signup():
+    if 'user_id' in session:
+        return redirect(url_for('feed'))
+        
     if request.method == 'POST':
         email = request.form.get('email', '').strip()
+        password = request.form.get('password', '').strip()
+        confirm_password = request.form.get('confirm_password', '').strip()
+        first_name = request.form.get('first_name', '').strip()
+        last_name = request.form.get('last_name', '').strip()
+        
+        # Basic validation
         if not email.endswith('@university.edu'):
-            error = 'Please use your university email address.'
+            flash('Please use your university email address.', 'danger')
+        elif password != confirm_password:
+            flash('Passwords do not match.', 'danger')
+        elif len(password) < 8:
+            flash('Password must be at least 8 characters long.', 'danger')
         else:
             conn = get_db_connection()
-            user = conn.execute('SELECT * FROM Users WHERE email = ?', (email,)).fetchone()
             
-            if user:
-                # Check if this is the user's first login
-                first_login = user['first_login'] if 'first_login' in user.keys() else 1
+            # Check if email already exists
+            existing_user = conn.execute('SELECT id FROM Users WHERE email = ?', (email,)).fetchone()
+            if existing_user:
+                flash('An account with this email already exists. Please log in instead.', 'warning')
+                conn.close()
+                return redirect(url_for('login'))
+            
+            # Hash the password
+            hashed_password = hash_password(password)
+            
+            # Create new user
+            try:
+                cursor = conn.cursor()
+                cursor.execute(
+                    'INSERT INTO Users (email, password, name, role) VALUES (?, ?, ?, ?)',
+                    (email, hashed_password, f"{first_name} {last_name}".strip(), 'student')
+                )
+                user_id = cursor.lastrowid
+                conn.commit()
                 
-                # Update first_login status if it's their first login
-                if first_login == 1:
-                    conn.execute('UPDATE Users SET first_login = 0 WHERE id = ?', (user['id'],))
+                # Log the user in
+                session['user_id'] = user_id
+                session['role'] = 'student'
+                session['email'] = email
+                session['name'] = f"{first_name} {last_name}".strip() or email.split('@')[0]
+                
+                flash('Account created successfully! Welcome to FulDocs!', 'success')
+                return redirect(url_for('welcome_guide'))
+                
+            except Exception as e:
+                conn.rollback()
+                flash('An error occurred while creating your account. Please try again.', 'danger')
+                print(f"Error creating user: {str(e)}")
+            finally:
+                conn.close()
+    
+    return render_template('signup.html')
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if 'user_id' in session:
+        return redirect(url_for('feed'))
+        
+    error = None
+    if request.method == 'POST':
+        email = request.form.get('email')
+        password = request.form.get('password')
+        
+        conn = get_db_connection()
+        user = conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
+        conn.close()
+        
+        if user and verify_password(user['password'], password):
+            session['user_id'] = user['id']
+            session['email'] = user['email']
+            session['name'] = user['name']
+            session['role'] = user['role']
+            
+            # Track login in analytics
+            analytics.track_login(user['id'])
+            
+            # Update last login time
+            login_time = datetime.utcnow()
+            conn = get_db_connection()
+            try:
+                # Check if last_login column exists
+                cursor = conn.cursor()
+                cursor.execute("PRAGMA table_info(Users)")
+                columns = [column[1] for column in cursor.fetchall()]
+                
+                if 'last_login' not in columns:
+                    # Add the column if it doesn't exist
+                    cursor.execute('ALTER TABLE Users ADD COLUMN last_login TIMESTAMP')
                     conn.commit()
                 
-                session['user_id'] = user['id']
-                session['role'] = user['role']
-                session['email'] = user['email']
-                session['name'] = user['name'] or email.split('@')[0]
-                
-                if first_login == 1:
-                    flash('Welcome to FulDocs! Let\'s get you started!', 'success')
-                    return redirect(url_for('welcome_guide'))
-                else:
-                    flash('Welcome back!', 'success')
-                    return redirect(url_for('feed'))
-            else:
-                error = 'No account found for this email.'
-            conn.close()
+                # Update the last login time
+                cursor.execute('UPDATE Users SET last_login = ? WHERE id = ?', 
+                            (login_time.isoformat(), user['id']))
+                conn.commit()
+            except Exception as e:
+                print(f"Error updating last login: {e}")
+                conn.rollback()
+            finally:
+                conn.close()
+            
+            flash('Login successful!', 'success')
+            return redirect(url_for('feed'))
+        else:
+            error = 'Invalid email or password.'
+    
     return render_template('login.html', error=error)
 
 
@@ -401,6 +542,10 @@ def welcome_guide():
 
 @app.route('/logout')
 def logout():
+    # Track logout in analytics
+    if 'user_id' in session:
+        analytics.track_logout(session['user_id'])
+    
     session.clear()
     flash('You have been logged out.', 'info')
     return redirect(url_for('login'))
@@ -512,49 +657,68 @@ def feed():
     if 'user_id' not in session:
         return redirect(url_for('login'))
     
+    # Get sort parameter from URL, default to 'newest'
+    sort_by = request.args.get('sort', 'newest')
+    
     conn = get_db_connection()
     
-    # Fetch verified documents and all questions with verification info and star counts
-    docs = conn.execute(
-        '''SELECT Documents.id AS id, Documents.title AS title,
-                  Documents.description AS description,
-                  Documents.tags AS tags,
-                  Documents.status AS status,
-                  Documents.views AS views,
-                  Documents.verification_requested AS verification_requested,
-                  Documents.verified_at AS verified_at,
-                  Users.email AS author,
-                  Users.name AS author_name,
-                  Users.id AS author_id,
-                  Documents.file_path AS file_path,
-                  Documents.created_at AS created_at,
-                  'Document' AS type,
-                  (SELECT COUNT(*) FROM Stars WHERE item_type = 'document' AND item_id = Documents.id) AS star_count,
-                  prof.id AS verified_by_id,
-                  prof.name AS verified_by_name
-           FROM Documents
-           JOIN Users ON Documents.user_id = Users.id
-           LEFT JOIN Users AS prof ON Documents.verified_by = prof.id
-           WHERE Documents.status = 'Verified'
-           ORDER BY Documents.created_at DESC''').fetchall()
+    # Base query for documents
+    docs_query = '''
+        SELECT Documents.id AS id, Documents.title AS title,
+               Documents.description AS description,
+               Documents.tags AS tags,
+               Documents.status AS status,
+               Documents.views AS views,
+               Documents.verification_requested AS verification_requested,
+               Documents.verified_at AS verified_at,
+               Users.email AS author,
+               Users.name AS author_name,
+               Users.id AS author_id,
+               Documents.file_path AS file_path,
+               Documents.created_at AS created_at,
+               'Document' AS type,
+               (SELECT COUNT(*) FROM Stars WHERE item_type = 'document' AND item_id = Documents.id) AS star_count,
+               prof.id AS verified_by_id,
+               prof.name AS verified_by_name
+        FROM Documents
+        JOIN Users ON Documents.user_id = Users.id
+        LEFT JOIN Users AS prof ON Documents.verified_by = prof.id
+        WHERE Documents.status = 'Verified'
+    '''
     
-    questions = conn.execute(
-        '''SELECT Questions.id AS id, Questions.title AS title,
-                  Questions.description AS description,
-                  Questions.tags AS tags,
-                  Questions.status AS status,
-                  Questions.views AS views,
-                  Users.email AS author,
-                  Users.name AS author_name,
-                  Users.id AS author_id,
-                  Questions.file_path AS file_path,
-                  Questions.created_at AS created_at,
-                  'Question' AS type,
-                  0 AS star_count,  -- Questions themselves aren't starred, only answers
-                  (SELECT COUNT(*) FROM Answers a WHERE a.question_id = Questions.id) AS answer_count
-           FROM Questions
-           JOIN Users ON Questions.user_id = Users.id
-           ORDER BY Questions.created_at DESC''').fetchall()
+    # Base query for questions
+    questions_query = '''
+        SELECT Questions.id AS id, Questions.title AS title,
+               Questions.description AS description,
+               Questions.tags AS tags,
+               Questions.status AS status,
+               Questions.views AS views,
+               Users.email AS author,
+               Users.name AS author_name,
+               Users.id AS author_id,
+               Questions.file_path AS file_path,
+               Questions.created_at AS created_at,
+               'Question' AS type,
+               (SELECT COUNT(*) FROM Stars WHERE item_type = 'question' AND item_id = Questions.id) AS star_count,
+               (SELECT COUNT(*) FROM Answers a WHERE a.question_id = Questions.id) AS answer_count
+        FROM Questions
+        JOIN Users ON Questions.user_id = Users.id
+    '''
+    
+    # Apply sorting based on the sort_by parameter
+    if sort_by == 'most_viewed':
+        docs_query += ' ORDER BY Documents.views DESC, Documents.created_at DESC'
+        questions_query += ' ORDER BY Questions.views DESC, Questions.created_at DESC'
+    elif sort_by == 'most_stars':
+        docs_query += ' ORDER BY star_count DESC, Documents.created_at DESC'
+        questions_query += ' ORDER BY star_count DESC, Questions.created_at DESC'
+    else:  # Default to newest
+        docs_query += ' ORDER BY Documents.created_at DESC'
+        questions_query += ' ORDER BY Questions.created_at DESC'
+    
+    # Execute queries
+    docs = conn.execute(docs_query).fetchall()
+    questions = conn.execute(questions_query).fetchall()
     
     conn.close()
     
@@ -562,18 +726,23 @@ def feed():
     items = []
     for doc in docs:
         doc_dict = dict(doc)
-        doc_dict['user_id'] = doc_dict['author_id']  # Add user_id for consistency
+        doc_dict['user_id'] = doc_dict['author_id']
         items.append(doc_dict)
     
     for question in questions:
         q_dict = dict(question)
-        q_dict['user_id'] = q_dict['author_id']  # Add user_id for consistency
+        q_dict['user_id'] = q_dict['author_id']
         items.append(q_dict)
     
-    # Sort items by creation date
-    items_sorted = sorted(items, key=lambda x: x['created_at'], reverse=True)
+    # If sorting by stars, we need to sort the combined list since stars are calculated in the query
+    if sort_by == 'most_stars':
+        items_sorted = sorted(items, key=lambda x: (x.get('star_count', 0), x.get('created_at', '')), reverse=True)
+    elif sort_by == 'most_viewed':
+        items_sorted = sorted(items, key=lambda x: (x.get('views', 0), x.get('created_at', '')), reverse=True)
+    else:  # newest
+        items_sorted = sorted(items, key=lambda x: x.get('created_at', ''), reverse=True)
     
-    return render_template('feed.html', items=items_sorted)
+    return render_template('feed.html', items=items_sorted, sort_by=sort_by)
 
 
 @app.route('/search', methods=['GET', 'POST'])
@@ -724,10 +893,22 @@ def view_document(doc_id):
         flash('Document not found.', 'error')
         return redirect(url_for('feed'))
     
-    # Convert SQLite Row to dict
+    # Convert row to dict for template
     document = dict(document_row)
     
-    # Get star information
+    # Ensure file_path is a string and properly formatted
+    if 'file_path' in document and document['file_path']:
+        document['file_path'] = document['file_path'].lstrip('/')  # Remove leading slash if present
+    
+    # Convert created_at to datetime object if it's a string
+    if isinstance(document.get('created_at'), str):
+        from datetime import datetime
+        try:
+            document['created_at'] = datetime.strptime(document['created_at'], '%Y-%m-%d %H:%M:%S')
+        except (ValueError, TypeError):
+            document['created_at'] = None
+    
+    # Check if current user has starred this document
     is_starred = False
     star_count = 0
     
@@ -1227,7 +1408,56 @@ def delete_question(question_id: int):
 
 @app.route('/uploads/<path:filename>')
 def uploaded_file(filename: str):
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+    try:
+        # Only allow serving files from the uploads directory
+        uploads_dir = os.path.join(app.root_path, 'uploads')
+        file_path = os.path.join(uploads_dir, filename)
+        
+        # Security check to prevent directory traversal
+        if not os.path.abspath(file_path).startswith(os.path.abspath(uploads_dir)):
+            app.logger.warning(f'Security alert: Directory traversal attempt: {filename}')
+            return 'Access denied', 403
+        
+        if not os.path.exists(file_path):
+            app.logger.error(f'File not found: {file_path}')
+            return 'File not found', 404
+        
+        # Determine MIME type based on file extension
+        mimetype = 'application/octet-stream'  # Default MIME type
+        if filename.lower().endswith(('.html', '.htm')):
+            mimetype = 'text/html; charset=utf-8'
+        elif filename.lower().endswith('.pdf'):
+            mimetype = 'application/pdf'
+        elif filename.lower().endswith(('.jpg', '.jpeg')):
+            mimetype = 'image/jpeg'
+        elif filename.lower().endswith('.png'):
+            mimetype = 'image/png'
+        elif filename.lower().endswith('.gif'):
+            mimetype = 'image/gif'
+        
+        # Create response with proper headers
+        response = send_from_directory(
+            uploads_dir,
+            filename,
+            mimetype=mimetype,
+            as_attachment=False,
+            download_name=filename
+        )
+        
+        # Add security headers
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+        
+        # Only allow same-origin for HTML files to prevent XSS
+        if filename.lower().endswith(('.html', '.htm')):
+            response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline';"
+        
+        app.logger.info(f'Served file: {filename} as {mimetype}')
+        return response
+        
+    except Exception as e:
+        app.logger.error(f'Error serving file {filename}: {str(e)}')
+        return f'Error loading file: {str(e)}', 500
 
 
 @app.route('/chat')
@@ -1374,19 +1604,93 @@ def document_preview(doc_id):
 
 @app.route('/document/html/<path:filename>')
 def serve_html(filename):
-    """Serve HTML files with proper content type"""
-    # Only allow serving files from the uploads directory
-    uploads_dir = os.path.join(app.root_path, 'uploads')
-    file_path = os.path.join(uploads_dir, filename)
+    """Serve HTML files with proper content type and security"""
+    try:
+        # Only allow serving files from the uploads directory
+        uploads_dir = os.path.join(app.root_path, 'uploads')
+        file_path = os.path.join(uploads_dir, filename)
+        
+        # Security check to prevent directory traversal
+        if not os.path.abspath(file_path).startswith(os.path.abspath(uploads_dir)):
+            app.logger.warning(f'Security alert: Directory traversal attempt: {filename}')
+            return 'Access denied', 403
+        
+        if not os.path.exists(file_path):
+            app.logger.error(f'File not found: {file_path}')
+            return 'File not found', 404
+        
+        # Additional check to ensure it's an HTML file
+        if not filename.lower().endswith(('.html', '.htm')):
+            app.logger.warning(f'Invalid file type requested: {filename}')
+            return 'Invalid file type. Only HTML files are allowed.', 400
+        
+        # Read the file content and send it with proper headers
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # Create response with proper headers
+        response = app.response_class(
+            response=content,
+            status=200,
+            mimetype='text/html; charset=utf-8'
+        )
+        
+        # Add security headers
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+        response.headers['Content-Security-Policy'] = "default-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline';"
+        
+        app.logger.info(f'Served HTML file: {filename}')
+        return response
+        
+    except Exception as e:
+        app.logger.error(f'Error serving HTML file {filename}: {str(e)}')
+        return f'Error loading file: {str(e)}', 500
+        abort(500, 'Error loading the file')
+
+@app.route('/analytics')
+def view_analytics():
+    print("\n=== Debug: Analytics Access Check ===")
+    print(f"Session data: {dict(session)}")
+    print(f"User role: {session.get('role')}")
+    print(f"User ID: {session.get('user_id')}")
     
-    # Security check to prevent directory traversal
-    if not os.path.abspath(file_path).startswith(os.path.abspath(uploads_dir)):
-        abort(403, 'Access denied')
+    if 'user_id' not in session:
+        print("Access denied: No user_id in session")
+        abort(403)  # Forbidden
+        
+    if session.get('role', '').lower() != 'admin':
+        print(f"Access denied: User role '{session.get('role')}' is not admin")
+        abort(403)  # Forbidden
+        
+    if not analytics or not hasattr(analytics, 'redis') or not analytics.redis:
+        flash('Analytics service is not available. Please check your Redis configuration.', 'error')
+        return redirect(url_for('index'))
     
-    if not os.path.exists(file_path):
-        abort(404, 'File not found')
+    # Get all users
+    conn = get_db_connection()
+    users = conn.execute('SELECT id, name, email, role, last_login FROM users').fetchall()
+    conn.close()
     
-    return send_from_directory(uploads_dir, filename)
+    # Get analytics for each user
+    user_analytics = []
+    for user in users:
+        stats = analytics.get_user_stats(user['id'])
+        user_analytics.append({
+            'id': user['id'],
+            'name': user['name'],
+            'email': user['email'],
+            'role': user['role'],
+            'last_login': user['last_login'],
+            'total_logins': stats.get('total_logins', 0) if stats else 0,
+            'total_sessions': stats.get('total_sessions', 0) if stats else 0,
+            'avg_session_seconds': round(stats.get('avg_session_seconds', 0), 2) if stats else 0,
+            'total_session_seconds': round(stats.get('total_session_seconds', 0), 2) if stats else 0,
+            'page_views': stats.get('page_views', {}) if stats else {},
+            'action_counts': stats.get('action_counts', {}) if stats else {}
+        })
+    
+    return render_template('analytics.html', users=user_analytics)
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 9000))

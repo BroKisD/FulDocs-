@@ -33,12 +33,29 @@
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
+// Simple markdown to HTML conversion
+function renderMarkdown(markdown) {
+    // Convert markdown to HTML
+    const html = marked.parse(markdown || '');
+    // Make sure links open in new tab
+    return html.replace(/<a /g, '<a target="_blank" rel="noopener noreferrer" ');
+}
+
 function addMessage(sender, message) {
     const chatMessages = document.getElementById('chat-messages');
     const messageDiv = document.createElement('div');
     messageDiv.className = `alert ${sender === 'user' ? 'alert-secondary' : 'alert-info'}`;
-    messageDiv.innerHTML = `<strong>${sender === 'user' ? 'You' : 'AI Assistant'}:</strong> ${message}`;
+    
+    // Only render markdown for AI responses
+    const messageContent = sender === 'ai' ? renderMarkdown(message) : message;
+    
+    messageDiv.innerHTML = `
+        <strong>${sender === 'user' ? 'You' : 'AI Assistant'}:</strong>
+        <div class="message-content">${messageContent}</div>
+    `;
+    
     chatMessages.appendChild(messageDiv);
     chatMessages.scrollTop = chatMessages.scrollHeight;
 }
@@ -98,6 +115,45 @@ document.getElementById('user-input').addEventListener('keypress', function(e) {
 </script>
 
 <style>
+/* Style markdown content */
+.message-content {
+    margin-top: 8px;
+}
+
+.message-content p {
+    margin-bottom: 8px;
+}
+
+.message-content pre {
+    background-color: #f8f9fa;
+    padding: 10px;
+    border-radius: 4px;
+    overflow-x: auto;
+}
+
+.message-content code {
+    background-color: #f8f9fa;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-family: 'Courier New', Courier, monospace;
+}
+
+.message-content a {
+    color: #0d6efd;
+    text-decoration: none;
+}
+
+.message-content a:hover {
+    text-decoration: underline;
+}
+
+/* Make sure long words don't break layout */
+.message-content {
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    word-break: break-word;
+}
+
 #chat-messages {
     background-color: #f9f9f9;
     border-radius: 5px;

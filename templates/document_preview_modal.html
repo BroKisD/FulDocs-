@@ -1,0 +1,45 @@
+<!-- Document Preview Modal -->
+<div class="modal fade" id="documentPreviewModal" tabindex="-1" aria-labelledby="documentPreviewModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="documentPreviewModalLabel">Document Preview</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="text-center" id="previewLoading">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <p class="mt-2">Loading document preview...</p>
+        </div>
+        <div id="previewContent">
+          <div class="mb-3">
+            <h4 id="previewTitle"></h4>
+            <div class="d-flex align-items-center mb-2">
+              <img id="previewAuthorAvatar" src="" alt="Author" class="rounded-circle me-2" width="32" height="32" 
+                   onerror="this.src='https://ui-avatars.com/api/?name='+encodeURIComponent(document.getElementById('previewAuthor').textContent)">
+              <span class="text-muted small">
+                <span id="previewAuthor"></span> • 
+                <span id="previewDate"></span>
+              </span>
+            </div>
+            <p id="previewDescription" class="text-muted"></p>
+          </div>
+          <div class="border rounded p-3 bg-light">
+            <div id="filePreview">
+              <!-- Preview content will be loaded here -->
+            </div>
+          </div>
+        </div>
+        <div id="previewError" class="alert alert-danger" style="display: none;"></div>
+      </div>
+      <div class="modal-footer">
+        <a id="downloadBtn" href="#" class="btn btn-primary me-auto">
+          <i class="fas fa-download me-1"></i>Download
+        </a>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>

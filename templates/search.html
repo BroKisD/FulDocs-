@@ -11,11 +11,16 @@
   #previewContent {
     display: none;
   }
+  .preview-doc {
+    cursor: pointer;
+  }
 </style>
 {% endblock %}
 
 {% block content %}
 <!-- Document Preview Modal -->
+{% include 'document_preview_modal.html' %}
+
 <div class="modal fade" id="documentPreviewModal" tabindex="-1" aria-labelledby="documentPreviewModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-centered">
     <div class="modal-content">
@@ -209,4 +214,9 @@
     </div>
   {% endif %}
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="{{ url_for('static', filename='js/document_preview.js') }}"></script>
 {% endblock %}

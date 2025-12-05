@@ -22,7 +22,7 @@
     <div class="card shadow-sm">
       <div class="card-body p-4">
         <form method="post" action="{{ url_for('login') }}">
-          <div class="mb-4">
+          <div class="mb-3">
             <label for="email" class="form-label">
               <i class="fas fa-envelope me-1"></i>University Email
             </label>
@@ -33,9 +33,33 @@
               Use your university email address ending with @university.edu
             </div>
           </div>
-          <button type="submit" class="btn btn-primary w-100">
+          
+          <div class="mb-4">
+            <label for="password" class="form-label">
+              <i class="fas fa-lock me-1"></i>Password
+            </label>
+            <div class="input-group">
+              <input type="password" class="form-control" id="password" name="password" 
+                     placeholder="Enter your password" required>
+              <button class="btn btn-outline-secondary toggle-password" type="button">
+                <i class="fas fa-eye"></i>
+              </button>
+            </div>
+            <div class="text-end mt-2">
+              <a href="#" class="text-decoration-none small">Forgot password?</a>
+            </div>
+          </div>
+          
+          <button type="submit" class="btn btn-primary w-100 mb-3">
             <i class="fas fa-sign-in-alt me-2"></i>Sign In
           </button>
+          
+          <div class="text-center">
+            <p class="mb-0 text-muted">
+              Don't have an account? 
+              <a href="{{ url_for('signup') }}" class="text-primary text-decoration-none">Sign up</a>
+            </p>
+          </div>
         </form>
       </div>
     </div>
@@ -74,5 +98,39 @@
   .form-control:focus {
     box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
   }
+  
+  .btn-outline-secondary {
+    border-color: #dee2e6;
+  }
+  
+  .btn-outline-secondary:hover {
+    background-color: #f8f9fa;
+    border-color: #dee2e6;
+  }
+  
+  .toggle-password {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+  }
 </style>
+
+<script>
+  // Toggle password visibility
+  document.querySelectorAll('.toggle-password').forEach(button => {
+    button.addEventListener('click', function() {
+      const input = this.previousElementSibling;
+      const icon = this.querySelector('i');
+      
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+      } else {
+        input.type = 'password';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+      }
+    });
+  });
+</script>
 {% endblock %}

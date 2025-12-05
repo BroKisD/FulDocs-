@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block title %}User Analytics{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>User Analytics Dashboard</h2>
+    <p class="text-muted">Monitor user activity and engagement metrics</p>
+    
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>User Activity Summary</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>User</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Last Login</th>
+                            <th>Total Logins</th>
+                            <th>Total Sessions</th>
+                            <th>Avg. Session</th>
+                            <th>Total Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                        <tr>
+                            <td>{{ user.name }}</td>
+                            <td>{{ user.email }}</td>
+                            <td><span class="badge bg-{{ 'primary' if user.role == 'admin' else 'success' }}">
+                                {{ user.role|capitalize }}
+                            </span></td>
+                            <td>{{ user.last_login|datetimeformat if user.last_login else 'Never' }}</td>
+                            <td>{{ user.total_logins }}</td>
+                            <td>{{ user.total_sessions }}</td>
+                            <td>{{ user.avg_session_seconds }}s</td>
+                            <td>{{ (user.total_session_seconds / 60)|round(2) }} min</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    {% for user in users %}
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>Detailed Analytics: {{ user.name }} ({{ user.email }})</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>Page Views</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Page</th>
+                                    <th>Views</th>
+                                    <th>Time Spent</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for page, count in user.page_views.items() %}
+                                <tr>
+                                    <td>{{ page }}</td>
+                                    <td>{{ count }}</td>
+                                    <td>{{ (user.page_times.get(page, 0) / 60)|round(2) if user.page_times else 0 }} min</td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="3" class="text-muted">No page view data available</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <h6>User Actions</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Action</th>
+                                    <th>Count</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for action, count in user.action_counts.items() %}
+                                <tr>
+                                    <td>{{ action|replace('_', ' ')|title }}</td>
+                                    <td>{{ count }}</td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="2" class="text-muted">No action data available</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<style>
+    .card {
+        border-radius: 10px;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    }
+    .card-header {
+        background-color: #f8f9fa;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+    }
+    .table th {
+        border-top: none;
+    }
+</style>
+{% endblock %}

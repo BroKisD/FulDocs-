@@ -1,6 +1,7 @@
 import os
 from PyPDF2 import PdfReader
 from docx import Document
+from db_utils import get_db_connection
 
 def extract_text_from_file(file_path):
     """Extract text from various document formats."""
@@ -41,3 +42,21 @@ def get_document_context():
                 context.append(f"Document: {filename}\n{text}")
     
     return "\n\n".join(context)
+
+def get_documents_metadata() -> list[dict]:
+    """Retrieve metadata for all documents from the database."""
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT id, title, filename, created_at, user_id, is_verified 
+            FROM documents 
+            ORDER BY created_at DESC
+        """)
+        columns = [column[0] for column in cursor.description]
+        return [dict(zip(columns, row)) for row in cursor.fetchall()]
+    except Exception as e:
+        print(f"Error fetching document metadata: {str(e)}")
+        return []
+    finally:
+        conn.close()
