@@ -49,7 +49,7 @@ def get_documents_metadata() -> list[dict]:
     try:
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT id, title, filename, created_at, user_id, is_verified 
+            SELECT id, title, file_path, created_at, user_id
             FROM documents 
             ORDER BY created_at DESC
         """)

@@ -92,6 +92,8 @@ def get_chat_response(user_input: str, session_id: str = 'default') -> str:
         document_context = get_document_context()
         database_context = get_database_context()
         document_links = get_document_links()
+
+        print(document_links)
         
         # Get conversation history
         history = conversation_cache.get(session_id, {}).get('history', [])
