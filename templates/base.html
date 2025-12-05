@@ -449,33 +449,23 @@
         
         // Function to send time data to the server
         function sendTimeSpent() {
-          // Don't send data more than once per page view
           if (hasSentData) return;
           
           const endTime = new Date().getTime();
-          const timeSpent = (endTime - startTime) / 1000; // Convert to seconds
+          const timeSpent = Math.floor((endTime - startTime) / 1000); // in seconds
           
-          // Only send if user spent more than 1 second on the page
-          if (timeSpent > 1) {
-            // Create form data to send
-            const formData = new FormData();
-            formData.append('path', path);
-            formData.append('time_spent', timeSpent.toString());
-            
-            // Use fetch with keepalive flag for better reliability
-            if (navigator.sendBeacon) {
-              // Convert FormData to URLSearchParams for Beacon
-              const params = new URLSearchParams();
-              formData.forEach((value, key) => params.append(key, value));
-              navigator.sendBeacon('/track-time', params);
-            } else {
-              // Fallback for browsers that don't support sendBeacon
-              fetch('/track-time', {
-                method: 'POST',
-                body: formData,
-                keepalive: true
-              });
-            }
+          if (timeSpent > 0) {
+            fetch('/track_time', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                user_id: userId,
+                path: path,
+                time_spent: timeSpent
+              })
+            });
             
             hasSentData = true;
           }
@@ -495,7 +485,7 @@
         window.addEventListener('beforeunload', sendTimeSpent);
       })();
       {% endif %}
-      });
+    });
   </script>
 </body>
 </html>
