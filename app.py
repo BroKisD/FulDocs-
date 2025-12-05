@@ -1648,6 +1648,32 @@ def serve_html(filename):
         return f'Error loading file: {str(e)}', 500
         abort(500, 'Error loading the file')
 
+@app.route('/track-time', methods=['POST'])
+def track_time():
+    """Track time spent on a page."""
+    if 'user_id' not in session:
+        return jsonify({'status': 'error', 'message': 'Not authenticated'}), 401
+    
+    try:
+        path = request.form.get('path')
+        time_spent = float(request.form.get('time_spent', 0))
+        
+        if path and time_spent > 0:
+            # Use Redis to store the time spent on each page
+            redis_key = f'user:{session["user_id"]}:page_times'
+            if not hasattr(analytics, 'redis') or not analytics.redis:
+                current_app.logger.error("Redis not available for time tracking")
+                return jsonify({'status': 'error', 'message': 'Analytics service unavailable'}), 500
+                
+            # Increment the time spent on this path
+            analytics.redis.hincrbyfloat(redis_key, path, time_spent)
+            return jsonify({'status': 'success'})
+            
+    except Exception as e:
+        current_app.logger.error(f"Error tracking time: {str(e)}")
+    
+    return jsonify({'status': 'error', 'message': 'Invalid request'}), 400
+
 @app.route('/analytics')
 def view_analytics():
     print("\n=== Debug: Analytics Access Check ===")
@@ -1687,6 +1713,7 @@ def view_analytics():
             'avg_session_seconds': round(stats.get('avg_session_seconds', 0), 2) if stats else 0,
             'total_session_seconds': round(stats.get('total_session_seconds', 0), 2) if stats else 0,
             'page_views': stats.get('page_views', {}) if stats else {},
+            'page_times': stats.get('page_times', {}) if stats else {},
             'action_counts': stats.get('action_counts', {}) if stats else {}
         })
     

@@ -138,6 +138,11 @@ class UserAnalytics:
         # Get total login count
         login_count = int(self.redis.get(f'user:{user_id}:login_count') or 0)
         
+        # Get page times
+        page_times = self.redis.hgetall(f'user:{user_id}:page_times')
+        # Convert string values to float
+        page_times = {k: float(v) for k, v in page_times.items()}
+        
         # Calculate average session time
         avg_session = sum(session_times) / len(session_times) if session_times else 0
         
@@ -148,6 +153,7 @@ class UserAnalytics:
             'avg_session_seconds': avg_session,
             'total_session_seconds': sum(session_times),
             'page_views': page_stats,
+            'page_times': page_times,  # Add page times to the response
             'action_counts': action_counts,
             'last_active': self.redis.hget(f'user:{user_id}:activity', 'last_active')
         }
